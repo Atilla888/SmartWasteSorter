@@ -7,8 +7,9 @@ import { Spotlight } from "@/components/ui/spotlight"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Camera, AlertCircle } from "lucide-react"
+import { Camera, AlertCircle, CameraOff } from "lucide-react"
 import { CameraFeed } from "@/components/sorter/CameraFeed"
+import { captureFrame } from "@/lib/sorter/capture"
 
 // IP address validation regex
 const IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
@@ -18,6 +19,9 @@ export function SplineSceneBasic() {
   const [isCameraConnected, setIsCameraConnected] = useState(false)
   const [streamKey, setStreamKey] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isCapturing, setIsCapturing] = useState(false)
+  const [captureStatus, setCaptureStatus] = useState<string>("")
+  const [previewPaused, setPreviewPaused] = useState(false)
 
   const validateIpAddress = (ip: string): boolean => {
     if (!ip.trim()) return false
@@ -51,6 +55,7 @@ export function SplineSceneBasic() {
     // First, hide the camera feed (triggers cleanup in CameraFeed)
     setIsCameraConnected(false)
     setError(null)
+    setCaptureStatus("") // Clear capture status on disconnect
     
     // Wait for cleanup to complete (image src set to "about:blank")
     // This ensures the MJPEG TCP connection is fully closed before remount
@@ -59,6 +64,59 @@ export function SplineSceneBasic() {
     // Now reset streamKey to allow fresh remount on next connect
     setStreamKey(null)
     // Note: We keep cameraIp so user can easily reconnect
+  }
+
+  const handleCaptureAndSend = async () => {
+    if (!isCameraConnected) {
+      setCaptureStatus("Please connect camera first.")
+      return
+    }
+
+    if (!cameraIp.trim()) {
+      setCaptureStatus("Camera IP address is missing.")
+      return
+    }
+
+    try {
+      setIsCapturing(true)
+      setCaptureStatus("Pausing preview...")
+
+      // Step 1: Pause preview to release MJPEG connection
+      setPreviewPaused(true)
+
+      // Step 2: Wait for DroidCam to free the stream (250ms delay)
+      await new Promise((res) => setTimeout(res, 250))
+
+      // Step 3: Capture frame via backend proxy (extracts from MJPEG stream)
+      setCaptureStatus("Capturing frame...")
+      const blob = await captureFrame(cameraIp.trim())
+
+      // Step 4: Send to backend
+      setCaptureStatus("Uploading...")
+      const formData = new FormData()
+      formData.append("file", blob, "frame.jpg")
+
+      const res = await fetch("/api/capture", {
+        method: "POST",
+        body: formData
+      })
+
+      const json = await res.json()
+
+      if (json.success) {
+        setCaptureStatus(`✓ Image sent successfully! Saved as: ${json.saved_as}`)
+      } else {
+        setCaptureStatus(`✗ Upload failed: ${json.error || "Unknown error"}`)
+      }
+
+    } catch (err) {
+      console.error(err)
+      setCaptureStatus(`✗ Error capturing or uploading: ${err instanceof Error ? err.message : "Unknown error"}`)
+    } finally {
+      // Step 5: Resume preview after capture completes
+      setIsCapturing(false)
+      setPreviewPaused(false)
+    }
   }
 
   return (
@@ -149,6 +207,49 @@ export function SplineSceneBasic() {
                   </AlertDescription>
                 </Alert>
               )}
+
+              {/* Capture & Send Section */}
+              <div className="space-y-2 pt-4 border-t border-neutral-800">
+                <label className="text-sm font-medium text-neutral-200">
+                  Frame Capture
+                </label>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    onClick={handleCaptureAndSend}
+                    disabled={!isCameraConnected || isCapturing}
+                    variant="outline"
+                    size="lg"
+                    className="gap-2"
+                  >
+                    {isCapturing ? (
+                      <>
+                        <AlertCircle className="h-4 w-4 animate-spin" />
+                        Capturing...
+                      </>
+                    ) : (
+                      <>
+                        <CameraOff className="h-4 w-4" />
+                        Capture & Send
+                      </>
+                    )}
+                  </Button>
+                  
+                  {captureStatus && (
+                    <p className={`text-sm ${
+                      captureStatus.startsWith("✓") 
+                        ? "text-green-400" 
+                        : captureStatus.startsWith("✗")
+                        ? "text-destructive"
+                        : "text-neutral-400"
+                    }`}>
+                      {captureStatus}
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-500">
+                  Capture current frame from camera stream and send to backend for processing
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -156,7 +257,11 @@ export function SplineSceneBasic() {
 
       {/* Camera Feed Section */}
       {isCameraConnected && streamKey !== null && (
-        <CameraFeed key={streamKey} ipAddress={cameraIp.trim()} />
+        <CameraFeed 
+          key={streamKey} 
+          ipAddress={cameraIp.trim()}
+          paused={previewPaused}
+        />
       )}
     </div>
   )

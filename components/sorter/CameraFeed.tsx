@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils"
 
 interface CameraFeedProps {
   ipAddress: string
+  paused?: boolean
 }
 
-export function CameraFeed({ ipAddress }: CameraFeedProps) {
+export function CameraFeed({ ipAddress, paused = false }: CameraFeedProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
@@ -19,10 +20,21 @@ export function CameraFeed({ ipAddress }: CameraFeedProps) {
   const imgRef = useRef<HTMLImageElement | null>(null)
   const timestampRef = useRef<number>(Date.now())
 
-  // Generate stream URL with timestamp to force fresh connection
-  const streamUrl = `http://${ipAddress}:4747/video?ts=${timestampRef.current}`
+  // Generate stream URL - empty string when paused to release MJPEG connection
+  const streamUrl = paused
+    ? ""
+    : `http://${ipAddress}:4747/video?ts=${timestampRef.current}`
 
   useEffect(() => {
+    // Handle pause/unpause - release MJPEG connection when paused
+    if (paused && imgRef.current) {
+      // When paused, clear the src to release the MJPEG connection
+      imgRef.current.src = ""
+      setIsLoading(true)
+      setHasError(false)
+      return
+    }
+
     // Create new AbortController for this connection
     abortControllerRef.current = new AbortController()
     const controller = abortControllerRef.current
@@ -47,7 +59,7 @@ export function CameraFeed({ ipAddress }: CameraFeedProps) {
         controller.abort()
       }
     }
-  }, [ipAddress, retryCount])
+  }, [ipAddress, retryCount, paused])
 
   const handleImageLoad = () => {
     // Check if component is still mounted and not aborted
@@ -117,6 +129,7 @@ export function CameraFeed({ ipAddress }: CameraFeedProps) {
             )}
 
             <img
+              id="camera-stream"
               ref={imgRef}
               src={streamUrl}
               alt="Camera feed"
