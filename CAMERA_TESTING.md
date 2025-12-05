@@ -141,5 +141,5 @@
 
 ---
 
-*Last Updated: [Current Date]*
+*Last Updated: [20.11.2025]*
 
