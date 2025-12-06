@@ -29,7 +29,7 @@ FRAMES_DIR = os.path.join(BASE_DIR, "frames")
 # Global model instance (loaded once on first use)
 _model = None
 # Model path relative to project root (one level up from backend/)
-MODEL_PATH = os.path.join(str(project_root), "training", "model_output", "run", "weights", "best.pt")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
 
 
 def _load_model():
