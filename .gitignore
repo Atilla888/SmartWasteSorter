@@ -40,5 +40,25 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# training data
+# Ignore Python virtual environments
+venv/
+backend/venv/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore training datasets
 training/dataset/
+training/dataset_split/
+
+# Ignore YOLO weight checkpoints
+training/model_output/run/weights/*.pt
+training/model_output/run*/  # run, run2, run3, etc., except ONNX
+
+# Do NOT ignore ONNX
+!training/model_output/run/weights/*.onnx
+
+# Ignore backend frames
+backend/frames/
+

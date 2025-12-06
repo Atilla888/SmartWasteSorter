@@ -102,9 +102,22 @@ export function SplineSceneBasic() {
       })
 
       const json = await res.json()
+      
+      // Debug logging
+      console.log("Backend response:", json)
 
       if (json.success) {
-        setCaptureStatus(`✓ Image sent successfully! Saved as: ${json.saved_as}`)
+        // Extract prediction and confidence from response
+        const prediction = json.prediction || "unknown"
+        const confidence = json.confidence || 0
+        
+        // Format confidence as percentage (e.g., 0.931 -> 93.1%)
+        const confidencePercent = (confidence * 100).toFixed(1)
+        
+        // Display success message with prediction and confidence
+        setCaptureStatus(
+          `✓ Image sent successfully! Saved as: ${json.saved_as} | Prediction: ${prediction} (${confidencePercent}%)`
+        )
       } else {
         setCaptureStatus(`✗ Upload failed: ${json.error || "Unknown error"}`)
       }
