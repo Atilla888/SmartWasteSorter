@@ -68,3 +68,6 @@ training/model_output/
 # Ignore weight checkpoints inside training
 training/**/*.pt
 
+# Frames / snapshots
+backend/frames/*.jpg
+
