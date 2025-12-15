@@ -17,9 +17,11 @@ if str(project_root) not in sys.path:
 # Import with fallback for different run contexts
 try:
     from backend.utils.image_utils import read_upload_image
+    from backend.services.dobot_service import sort_with_robot
 except ImportError:
     # Fallback when running from backend/ directory
     from utils.image_utils import read_upload_image
+    from services.dobot_service import sort_with_robot
 
 
 # Get the directory where this file is located
@@ -105,13 +107,14 @@ def process_frame(file: UploadFile) -> dict:
         file: FastAPI UploadFile object containing the image
         
     Returns:
-        dict with success status, saved filename, prediction, and confidence.
+        dict with success status, saved filename, prediction, confidence, and robot_action.
         Example:
         {
             "success": True,
             "saved_as": "frame_20241121_143022_456.jpg",
             "prediction": "plastic",
-            "confidence": 0.95
+            "confidence": 0.95,
+            "robot_action": "Sorted to PLASTIC bin"
         }
     """
     try:
@@ -132,12 +135,24 @@ def process_frame(file: UploadFile) -> dict:
         # Run ML inference on the saved image
         inference_result = run_inference(image)
         
-        return {
+        # Trigger robot sorting based on prediction
+        robot_success, robot_message = sort_with_robot(inference_result["prediction"])
+        
+        # Build response
+        response = {
             "success": True,
             "saved_as": filename,
             "prediction": inference_result["prediction"],
             "confidence": inference_result["confidence"]
         }
+        
+        # Add robot action status (even if robot failed, we still return the prediction)
+        if robot_success:
+            response["robot_action"] = robot_message
+        else:
+            response["robot_action"] = f"Robot error: {robot_message}"
+        
+        return response
         
     except Exception as e:
         return {

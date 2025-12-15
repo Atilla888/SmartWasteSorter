@@ -421,13 +421,13 @@ def get_frame(cap):
 - [x] DroidCam connection UI
 - [x] Video stream display
 - [x] Frame capture functionality
-- [ ] Backend camera service
+- [x] Backend camera service
 
 ### Phase 3: ML Integration
-- [ ] ML model selection/loading
-- [ ] Image preprocessing
-- [ ] Prediction API
-- [ ] Results display
+- [x] ML model selection/loading
+- [x] Image preprocessing
+- [x] Prediction API
+- [x] Results display
 
 ### Phase 4: Robot Integration
 - [ ] Dobot connection

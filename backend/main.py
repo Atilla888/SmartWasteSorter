@@ -73,13 +73,14 @@ async def capture_frame(file: UploadFile = File(...)):
     Body: file: <uploaded image blob>
     
     Returns:
-        JSON response with success status, saved filename, prediction, and confidence.
+        JSON response with success status, saved filename, prediction, confidence, and robot_action.
         Example:
         {
             "success": true,
             "saved_as": "frame_20241121_143022_456.jpg",
             "prediction": "plastic",
-            "confidence": 0.95
+            "confidence": 0.95,
+            "robot_action": "Sorted to PLASTIC bin"
         }
     """
     try:
