@@ -27,14 +27,14 @@ except ImportError as e:
 
 # Bin positions mapping (x, y, z, r) in millimeters
 # Only 5 bins: paper, plastic, glass, biological, and trash (for all other classes)
-# TODO: Calibrate these coordinates for your specific setup
-# SAFE COORDINATES - Adjust these based on your physical bin positions
+# ADJUST THESE: Set the exact coordinates where each bin is located
+# Gripper will be CLOSED when robot arrives at bin, then OPENS to release object
 BIN_POSITIONS = {
-    "paper": (200, 100, -30, 0),            # Paper bin - SAFE DEFAULT
-    "plastic": (250, 0, -30, 0),            # Plastic bin - SAFE DEFAULT
-    "glass": (200, -100, -30, 0),           # Glass bin - SAFE DEFAULT
-    "biological": (150, 100, -30, 0),       # Biological waste bin - SAFE DEFAULT
-    "trash": (150, 0, -30, 0),              # General trash bin - SAFE DEFAULT
+    "paper": (187, 110, 50, 0),  # z-40          # Paper bin - ADJUST ME!
+    "plastic": (91, 110, 50, 0),            # Plastic bin - ADJUST ME!
+    "glass": (0, 150, 50, 0),           # Glass bin - ADJUST ME!
+    "biological": (0, 190, 50, 0),       # Biological waste bin - ADJUST ME!
+    "trash": (0, 230, 50, 0),              # General trash bin - ADJUST ME!
 }
 
 # Mapping function: converts ML prediction classes to robot bin classes
@@ -75,21 +75,41 @@ def map_class_to_bin(ml_prediction: str) -> str:
     else:
         return "trash"
 
-# Pickup position (where items are placed for sorting)
-# TODO: Calibrate this position for your setup
-# SAFE DEFAULT - Adjust based on where you place items for sorting
-PICKUP_POSITION = (200, 0, -20, 0)  # (x, y, z, r) - SAFE DEFAULT
+# ============================================================================
+# COORDINATE CALIBRATION SECTION
+# ============================================================================
+# Adjust these coordinates to match your physical setup.
+# All coordinates are in millimeters (mm).
+# Format: (x, y, z, r) where:
+#   - x: Forward/backward from robot base (mm)
+#   - y: Left/right from robot base (mm)
+#   - z: Up/down height (mm, negative = lower, positive = higher)
+#   - r: Rotation angle (degrees)
+#
+# See COORDINATE_ADJUSTMENT_GUIDE.md for detailed explanation.
+# ============================================================================
 
+# Pickup position (where items are placed for sorting)
+# ADJUST THIS: Position where you place items for the robot to pick up
+# Gripper will be OPEN when robot arrives here, then CLOSES to pick object
+PICKUP_POSITION = (250, -135, 90, 0)  # (x, y, z, r) - ADJUST ME!
+PICK_HEIGHT_OFFSET = -20
+PLACE_HEIGHT_OFFSET = -10
 # Home position (safe starting position - robot arm rest position)
-# TODO: Calibrate this position
-# SAFE DEFAULT - Adjust to a safe neutral position for your robot
-HOME_POSITION = (250, 0, 50, 0)  # (x, y, z, r) - SAFE DEFAULT
+# ADJUST THIS: Safe neutral position where robot waits between operations
+# Gripper is always OPEN at home position
+HOME_POSITION = (200, 0, 90, 0)  # (x, y, z, r) - ADJUST ME!
 
 # Movement parameters
 MOVE_SPEED = 200  # mm/s
-MOVE_ACCELERATION = 50  # mm/s²
-PICK_HEIGHT_OFFSET = -30  # mm (how far down to go for picking)
-PLACE_HEIGHT_OFFSET = -40  # mm (how far down to go for placing)
+MOVE_ACCELERATION = 40  # mm/s²
+
+# Height offsets - ADJUST THESE to fine-tune pick/place heights
+# How far BELOW the base position the robot goes when picking/placing
+# More negative = lower (robot goes down further)
+# Less negative = higher (robot doesn't go as low)
+#PICK_HEIGHT_OFFSET = -40  # mm - How far down from pickup_z when picking (ADJUST ME!)
+#PLACE_HEIGHT_OFFSET = -40  # mm - How far down from bin_z when placing (ADJUST ME!)
 
 
 class DobotService:
@@ -116,6 +136,7 @@ class DobotService:
         if not DOBOT_AVAILABLE:
             self._connected = False
             return
+        self._sorting_in_progress = False
     
     def _find_dobot_port(self) -> Optional[str]:
         """
@@ -199,6 +220,19 @@ class DobotService:
             
             # Start executing queued commands
             dType.SetQueuedCmdStartExec(self._api)
+            dType.dSleep(200)
+
+            # -------------- NEW: REQUIRED FOR MOVEMENT ----------------
+            # Run HOME immediately to activate motors and queue system
+            print("Running initial HOME command...")
+            home_idx = dType.SetHOMECmd(self._api, 0, 1)[0]
+
+            # Wait for HOME to finish
+            while True:
+                current = dType.GetQueuedCmdCurrentIndex(self._api)[0]
+                if current >= home_idx:
+                    break
+                dType.dSleep(100)
             
             print(f"Dobot connected successfully on port {port}")
             return True
@@ -248,10 +282,12 @@ class DobotService:
             True if successful, False otherwise
         """
         if not self.is_connected():
-            print("Error: Dobot is not connected")
+            print(f"ERROR: Dobot is not connected (attempted move to: x={x}, y={y}, z={z}, r={r})")
             return False
         
         try:
+            print(f"  → Moving to: ({x:.1f}, {y:.1f}, {z:.1f}, {r:.1f})")
+            
             # Use PTPMOVJXYZMode for joint movement (faster)
             # Set isQueued=1 to queue the command
             queued_index = dType.SetPTPCmd(
@@ -263,25 +299,35 @@ class DobotService:
             
             if wait:
                 # Wait for command to complete by polling queue index
-                max_wait_time = 10.0  # seconds
+                max_wait_time = 15.0  # Increased timeout to 15 seconds
                 start_time = time.time()
+                command_completed = False
                 
                 while time.time() - start_time < max_wait_time:
                     try:
                         current_index = dType.GetQueuedCmdCurrentIndex(self._api)[0]
                         if current_index >= queued_index:
                             # Command executed
+                            command_completed = True
                             break
-                    except Exception:
+                    except Exception as e:
+                        print(f"  Warning: Error checking command status: {e}")
                         pass
                     dType.dSleep(100)  # Sleep 100ms
                 
+                if not command_completed:
+                    print(f"  ERROR: Movement timed out after {max_wait_time}s (queued_index={queued_index})")
+                    return False
+                
                 # Additional small delay for stability
                 dType.dSleep(300)
+                print(f"  ✓ Movement completed")
             
             return True
         except Exception as e:
-            print(f"Error moving robot: {e}")
+            print(f"  ERROR: Exception during movement to ({x}, {y}, {z}, {r}): {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def pick(self) -> bool:
@@ -429,75 +475,126 @@ class DobotService:
         Returns:
             Tuple of (success: bool, message: str)
         """
+        # Prevent multiple simultaneous operations
+        if self._sorting_in_progress:
+            error_msg = "Sorting operation already in progress. Please wait for current operation to complete."
+            print(f"ERROR: {error_msg}")
+            return False, error_msg
+        
         if not self.is_connected():
             print("ERROR: Dobot is not connected in sort_item()")
             return False, "Dobot is not connected"
         
-        print(f"\n{'='*50}")
-        print(f"Starting sorting sequence for: {class_name}")
-        print(f"{'='*50}")
-        
-        # Map ML prediction to bin class (paper, plastic, glass, biological, or trash)
-        bin_class = map_class_to_bin(class_name)
-        original_class = class_name  # Keep original for message
-        
-        print(f"ML Prediction: {original_class}")
-        print(f"Mapped to bin: {bin_class}")
-        
-        # Get bin position for the mapped class
-        if bin_class not in BIN_POSITIONS:
-            error_msg = f"Unknown bin class: {bin_class}"
-            print(f"ERROR: {error_msg}")
-            return False, error_msg
-        
-        bin_pos = BIN_POSITIONS[bin_class]
-        bin_x, bin_y, bin_z, bin_r = bin_pos
-        print(f"Target bin position: ({bin_x}, {bin_y}, {bin_z}, {bin_r})")
+        # Set flag to prevent concurrent operations
+        self._sorting_in_progress = True
         
         try:
+            print(f"\n{'='*50}")
+            print(f"Starting sorting sequence for: {class_name}")
+            print(f"{'='*50}")
+            
+            # Print current coordinate configuration for debugging
+            print(f"\nCurrent Coordinate Configuration:")
+            print(f"  PICKUP_POSITION: {PICKUP_POSITION}")
+            print(f"  HOME_POSITION: {HOME_POSITION}")
+            print(f"  PICK_HEIGHT_OFFSET: {PICK_HEIGHT_OFFSET}")
+            print(f"  PLACE_HEIGHT_OFFSET: {PLACE_HEIGHT_OFFSET}")
+            print(f"  BIN_POSITIONS:")
+            for bin_name, pos in BIN_POSITIONS.items():
+                print(f"    {bin_name}: {pos}")
+            
+            # Map ML prediction to bin class (paper, plastic, glass, biological, or trash)
+            bin_class = map_class_to_bin(class_name)
+            original_class = class_name  # Keep original for message
+            
+            print(f"\nML Prediction: {original_class}")
+            print(f"Mapped to bin: {bin_class}")
+            
+            # Get bin position for the mapped class
+            if bin_class not in BIN_POSITIONS:
+                error_msg = f"Unknown bin class: {bin_class}"
+                print(f"ERROR: {error_msg}")
+                return False, error_msg
+            
+            bin_pos = BIN_POSITIONS[bin_class]
+            bin_x, bin_y, bin_z, bin_r = bin_pos
+            print(f"Target bin position: ({bin_x}, {bin_y}, {bin_z}, {bin_r})")
+            
+            # Validate coordinates are within reasonable range
+            if abs(bin_x) > 300 or abs(bin_y) > 300 or bin_z > 200 or bin_z < -200:
+                print(f"WARNING: Bin coordinates seem unusual (x={bin_x}, y={bin_y}, z={bin_z}, r={bin_r})")
+                print(f"  Please verify these coordinates are correct for your setup.")
+            
+            # ============================================================
+            # PICKUP PHASE - Gripper starts OPEN, then CLOSES
+            # ============================================================
+            
             # Step 1: Move above pickup position
+            # GRIPPER STATE: OPEN ⬜
             pickup_x, pickup_y, pickup_z, pickup_r = PICKUP_POSITION
-            print(f"\nStep 1/9: Moving above pickup position ({pickup_x}, {pickup_y}, {pickup_z + 20}, {pickup_r})")
+            print(f"\nStep 1/9: Moving above pickup position ({pickup_x}, {pickup_y}, {pickup_z + 20}, {pickup_r}) [Gripper: OPEN]")
             if not self.move_to(pickup_x, pickup_y, pickup_z + 20, pickup_r, wait=True):
                 return False, "Failed to move to pickup position"
             
-            # Step 2: Descend to pickup position
-            print(f"Step 2/9: Descending to pickup position ({pickup_x}, {pickup_y}, {pickup_z + PICK_HEIGHT_OFFSET}, {pickup_r})")
+            # Step 2: Descend to pickup position (at object level)
+            # GRIPPER STATE: OPEN ⬜ (about to close)
+            print(f"Step 2/9: Descending to pickup position ({pickup_x}, {pickup_y}, {pickup_z + PICK_HEIGHT_OFFSET}, {pickup_r}) [Gripper: OPEN]")
             if not self.move_to(pickup_x, pickup_y, pickup_z + PICK_HEIGHT_OFFSET, pickup_r, wait=True):
                 return False, "Failed to descend to pickup position"
             
-            # Step 3: Pick up object
-            print("Step 3/9: Picking up object (closing gripper)")
+            # Step 3: Pick up object - GRIPPER CLOSES HERE!
+            # GRIPPER STATE: CLOSES ⬛ (picks up object)
+            print("Step 3/9: Picking up object (closing gripper) [Gripper: CLOSING]")
             if not self.pick():
                 return False, "Failed to pick up object"
+            print("  ✓ Gripper closed - object gripped")
             
-            # Step 4: Lift up
-            print(f"Step 4/9: Lifting object up ({pickup_x}, {pickup_y}, {pickup_z + 20}, {pickup_r})")
+            # Step 4: Lift up with object
+            # GRIPPER STATE: CLOSED ⬛ (holding object)
+            print(f"Step 4/9: Lifting object up ({pickup_x}, {pickup_y}, {pickup_z + 20}, {pickup_r}) [Gripper: CLOSED]")
             if not self.move_to(pickup_x, pickup_y, pickup_z + 20, pickup_r, wait=True):
                 return False, "Failed to lift object"
             
+            # ============================================================
+            # MOVEMENT PHASE - Gripper stays CLOSED (holding object)
+            # ============================================================
+            
             # Step 5: Move above bin position
-            print(f"Step 5/9: Moving above bin position ({bin_x}, {bin_y}, {bin_z + 20}, {bin_r})")
+            # GRIPPER STATE: CLOSED ⬛ (still holding object)
+            print(f"Step 5/9: Moving above bin position ({bin_x}, {bin_y}, {bin_z + 20}, {bin_r}) [Gripper: CLOSED]")
             if not self.move_to(bin_x, bin_y, bin_z + 20, bin_r, wait=True):
                 return False, "Failed to move to bin position"
             
             # Step 6: Descend to bin position
-            print(f"Step 6/9: Descending to bin position ({bin_x}, {bin_y}, {bin_z + PLACE_HEIGHT_OFFSET}, {bin_r})")
+            # GRIPPER STATE: CLOSED ⬛ (still holding object, about to release)
+            print(f"Step 6/9: Descending to bin position ({bin_x}, {bin_y}, {bin_z + PLACE_HEIGHT_OFFSET}, {bin_r}) [Gripper: CLOSED]")
             if not self.move_to(bin_x, bin_y, bin_z + PLACE_HEIGHT_OFFSET, bin_r, wait=True):
                 return False, "Failed to descend to bin position"
             
-            # Step 7: Place object
-            print("Step 7/9: Placing object (opening gripper)")
+            # ============================================================
+            # PLACE PHASE - Gripper OPENS to release object
+            # ============================================================
+            
+            # Step 7: Place object - GRIPPER OPENS HERE!
+            # GRIPPER STATE: OPENS ⬜ (releases object)
+            print("Step 7/9: Placing object (opening gripper) [Gripper: OPENING]")
             if not self.place():
                 return False, "Failed to place object"
+            print("  ✓ Gripper opened - object released")
             
-            # Step 8: Lift up
-            print(f"Step 8/9: Lifting up after placing ({bin_x}, {bin_y}, {bin_z + 20}, {bin_r})")
+            # Step 8: Lift up (gripper now empty)
+            # GRIPPER STATE: OPEN ⬜ (no longer holding object)
+            print(f"Step 8/9: Lifting up after placing ({bin_x}, {bin_y}, {bin_z + 20}, {bin_r}) [Gripper: OPEN]")
             if not self.move_to(bin_x, bin_y, bin_z + 20, bin_r, wait=True):
                 return False, "Failed to lift after placing"
             
+            # ============================================================
+            # RETURN PHASE - Gripper stays OPEN (ready for next item)
+            # ============================================================
+            
             # Step 9: Return home
-            print("Step 9/9: Returning to home position")
+            # GRIPPER STATE: OPEN ⬜ (ready for next operation)
+            print("Step 9/9: Returning to home position [Gripper: OPEN]")
             if not self.home():
                 return False, "Failed to return home"
             
@@ -512,7 +609,16 @@ class DobotService:
             return True, message
             
         except Exception as e:
-            return False, f"Sorting error: {str(e)}"
+            error_msg = f"Sorting error: {str(e)}"
+            print(f"\n{'='*50}")
+            print(f"ERROR: {error_msg}")
+            print(f"{'='*50}\n")
+            import traceback
+            traceback.print_exc()
+            return False, error_msg
+        finally:
+            # Always reset the flag, even if there was an error
+            self._sorting_in_progress = False
 
 
 # Global singleton instance
@@ -547,30 +653,46 @@ def sort_with_robot(class_name: str) -> Tuple[bool, str]:
         if success:
             print(f"Robot: {message}")
     """
+    print(f"\n>>> sort_with_robot() called with class_name='{class_name}'")
+    
     try:
-        service = get_dobot_service()
-        
-        # Check if Dobot SDK is available
+        # Check if Dobot SDK is available FIRST
         if not DOBOT_AVAILABLE:
-            print("Warning: Dobot SDK not available")
-            return False, "Dobot SDK not available - check dobot_magician folder"
+            error_msg = "Dobot SDK not available - check dobot_magician folder"
+            print(f"ERROR: {error_msg}")
+            print("  Make sure DobotDllType.py and DobotDll.dll exist in backend/dobot_magician/")
+            return False, error_msg
+        
+        print("  ✓ Dobot SDK is available")
+        
+        service = get_dobot_service()
+        print("  ✓ DobotService instance obtained")
         
         # Auto-connect if not connected
         if not service.is_connected():
-            print("Attempting to connect to Dobot...")
+            print("  ⚠ Robot not connected, attempting to connect...")
             if not service.connect():
                 error_msg = "Failed to connect to Dobot - check USB connection and COM port"
                 print(f"ERROR: {error_msg}")
+                print("  Troubleshooting:")
+                print("    1. Check USB cable connection")
+                print("    2. Verify COM port (Windows: Device Manager -> Ports)")
+                print("    3. Make sure Dobot is powered on")
+                print("    4. Check if another program is using the COM port")
                 return False, error_msg
+            print("  ✓ Robot connected successfully")
+        else:
+            print("  ✓ Robot already connected")
         
-        print(f"Starting robot sorting for class: {class_name}")
+        print(f"  → Calling sort_item('{class_name}')...")
         result = service.sort_item(class_name)
         
         if result[0]:
-            print(f"SUCCESS: {result[1]}")
+            print(f"  ✓ SUCCESS: {result[1]}")
         else:
-            print(f"FAILED: {result[1]}")
+            print(f"  ✗ FAILED: {result[1]}")
         
+        print(f"<<< sort_with_robot() returning: {result}\n")
         return result
         
     except Exception as e:
@@ -578,5 +700,6 @@ def sort_with_robot(class_name: str) -> Tuple[bool, str]:
         print(f"ERROR: {error_msg}")
         import traceback
         traceback.print_exc()
+        print(f"<<< sort_with_robot() returning: (False, '{error_msg}')\n")
         return False, error_msg
 

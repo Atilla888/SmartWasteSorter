@@ -2,11 +2,13 @@
 Camera service for processing captured frames.
 """
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Optional, Tuple
+
 from PIL import Image
 from fastapi import UploadFile
-import sys
-from pathlib import Path
 from ultralytics import YOLO
 
 # Add project root to path for imports
@@ -25,33 +27,44 @@ except ImportError:
 
 
 # Get the directory where this file is located
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FRAMES_DIR = os.path.join(BASE_DIR, "frames")
+BASE_DIR = Path(__file__).resolve().parent.parent
+FRAMES_DIR = BASE_DIR / "frames"
 
 # Global model instance (loaded once on first use)
-_model = None
-# Model path relative to project root (one level up from backend/)
-MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
+_model: Optional[YOLO] = None
+
+# Model path: use original location or env override
+# Default location: backend/models/best.pt
+# Can override with YOLO_MODEL_PATH environment variable
+model_path_str = os.getenv("YOLO_MODEL_PATH")
+if model_path_str:
+    MODEL_PATH = Path(model_path_str)
+else:
+    # Original path: backend/models/best.pt
+    MODEL_PATH = BASE_DIR / "models" / "best.pt"
+
+# Optional: choose device (cpu by default; set CUDA via env if available)
+MODEL_DEVICE = os.getenv("YOLO_DEVICE", "cpu")
 
 
-def _load_model():
+def _load_model() -> YOLO:
     """
     Load the YOLO classification model globally (lazy loading).
     Model is loaded once and reused for all inference requests.
     """
     global _model
     if _model is None:
-        if not os.path.exists(MODEL_PATH):
+        if not MODEL_PATH.exists():
             raise FileNotFoundError(
                 f"Model not found at {MODEL_PATH}. Please ensure the model is trained first."
             )
-        _model = YOLO(MODEL_PATH, task="classify")
+        _model = YOLO(str(MODEL_PATH), task="classify")
     return _model
 
 
 def ensure_frames_directory():
     """Ensure the frames directory exists."""
-    os.makedirs(FRAMES_DIR, exist_ok=True)
+    FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def run_inference(image: Image.Image) -> dict:
@@ -72,7 +85,11 @@ def run_inference(image: Image.Image) -> dict:
         # Load model (lazy loading - only loads once)
         model = _load_model()
         
-        # Run inference (YOLO handles resizing to 224x224 internally)
+        # Ensure image is RGB (YOLO handles resizing to 224x224 internally)
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+        
+        # Run inference (YOLO handles resizing automatically)
         results = model(image, verbose=False)
         
         # Get top-1 prediction
@@ -136,7 +153,19 @@ def process_frame(file: UploadFile) -> dict:
         inference_result = run_inference(image)
         
         # Trigger robot sorting based on prediction
-        robot_success, robot_message = sort_with_robot(inference_result["prediction"])
+        print(f"\n{'='*60}")
+        print(f"TRIGGERING ROBOT SORTING for prediction: {inference_result['prediction']}")
+        print(f"{'='*60}")
+        try:
+            robot_success, robot_message = sort_with_robot(inference_result["prediction"])
+            print(f"Robot operation completed: success={robot_success}, message={robot_message}")
+        except Exception as e:
+            print(f"ERROR: Exception during robot sorting: {e}")
+            import traceback
+            traceback.print_exc()
+            robot_success = False
+            robot_message = f"Exception: {str(e)}"
+        print(f"{'='*60}\n")
         
         # Build response
         response = {

@@ -7,6 +7,10 @@ import httpx
 JPEG_START = b'\xff\xd8'  # Start of Image (SOI)
 JPEG_END = b'\xff\xd9'    # End of Image (EOI)
 
+# Safety limits
+MAX_FRAME_BYTES = 1_500_000  # ~1.5 MB cap to avoid runaway buffering
+CHUNK_SIZE = 4096
+
 
 async def extract_single_frame(ip: str, timeout: float = 10.0) -> bytes:
     """
@@ -42,10 +46,15 @@ async def extract_single_frame(ip: str, timeout: float = 10.0) -> bytes:
                 # Read stream byte-by-byte until we find JPEG markers
                 buffer = bytearray()
                 found_start = False
-                chunk_size = 4096
                 
-                async for chunk in response.aiter_bytes(chunk_size):
+                async for chunk in response.aiter_bytes(CHUNK_SIZE):
                     buffer.extend(chunk)
+                    
+                    # Safety cap to avoid runaway buffering on bad streams
+                    if len(buffer) > MAX_FRAME_BYTES:
+                        raise RuntimeError(
+                            "Frame too large or stream not providing a valid JPEG (exceeded size limit)"
+                        )
                     
                     # Look for JPEG start marker
                     if not found_start:
