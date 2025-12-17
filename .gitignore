@@ -43,6 +43,7 @@ next-env.d.ts
 # Ignore Python virtual environments
 venv/
 backend/venv/
+.vevn/
 
 # Ignore Python cache
 __pycache__/
@@ -71,3 +72,6 @@ training/**/*.pt
 # Frames / snapshots
 backend/frames/*.jpg
 
+# OS
+.DS_Store
+Thumbs.db
