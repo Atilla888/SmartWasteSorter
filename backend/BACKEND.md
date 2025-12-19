@@ -212,11 +212,61 @@ pip install -r requirements.txt
 
 ### 3. Dobot SDK Setup
 
-Ensure the following files are in `backend/dobot_magician/`:
+**Important**: The official Dobot Magician SDK requires modifications to work correctly with this project. The SDK files are **not included** in this repository.
+
+**Step 1: Download Official SDK**
+1. Download the official Dobot Magician Python SDK from the Dobot website
+2. Extract the SDK files to a temporary location
+
+**Step 2: Copy SDK Files**
+Copy the following files from the official SDK to `backend/dobot_magician/`:
 - `DobotDll.dll` (Windows 64-bit)
-- `DobotDllType.py`, `DobotControl.py`
-- `msvcp120.dll`, `msvcr120.dll` (Microsoft C++ runtime)
-- `Qt5Core.dll`, `Qt5Network.dll`, `Qt5SerialPort.dll` (Qt dependencies)
+- `DobotDllType.py`
+- `DobotControl.py`
+- Supporting DLLs: `msvcp120.dll`, `msvcr120.dll`, `Qt5Core.dll`, `Qt5Network.dll`, `Qt5SerialPort.dll`
+
+**Step 3: Modify `DobotDllType.py`**
+
+The official SDK's `load()` function uses relative paths that fail when the script is run from different directories. You must modify `backend/dobot_magician/DobotDllType.py`:
+
+**Why changes are needed:**
+- The original SDK uses `"./DobotDll.dll"` (relative path), which only works when running from the SDK directory
+- The original uses `CDLL` with `RTLD_GLOBAL` flag, which is Linux/Mac-specific and causes issues on Windows
+- The project needs to load the DLL from any working directory
+
+**Required modifications:**
+
+1. **Add import at the top** (after line 3, with other imports):
+   ```python
+   from pathlib import Path
+   ```
+
+2. **Replace the `load()` function** (around line 587-595) with:
+   ```python
+   def load():
+       dll_path = str(Path(__file__).resolve().parent / "DobotDll.dll")
+       print("Loading Dobot DLL from:", dll_path)
+       if platform.system() == "Windows":
+           print("您用的dll是64位，为了顺利运行，请保证您的python环境也是64位")
+           print("python环境是：",platform.architecture())
+           from ctypes import WinDLL
+           return WinDLL(dll_path)
+       elif platform.system() == "Darwin":
+           dylib_path = str(Path(__file__).resolve().parent / "libDobotDll.dylib")
+           return CDLL(dylib_path)
+       elif platform.system() == "Linux":
+           return CDLL("libDobotDll.so")
+   ```
+
+**What changed:**
+- **Absolute path resolution**: Uses `Path(__file__).resolve().parent` to find the DLL relative to the script's location, regardless of working directory
+- **Windows-specific loading**: Uses `WinDLL` instead of `CDLL` on Windows (more appropriate for Windows DLLs)
+- **Removed RTLD_GLOBAL**: This flag is Linux/Mac-specific and not needed on Windows
+- **macOS path fix**: Also uses absolute path for macOS dylib
+
+**Verification:**
+After making these changes, the SDK should load correctly when running the backend from any directory.
+
 
 **Note:** Dobot SDK requires Windows OS.
 
@@ -228,6 +278,8 @@ backend/models/best.pt
 ```
 
 Or set `YOLO_MODEL_PATH` environment variable.
+
+Or use existing model located at backend/models/best.pt
 
 ### 5. Run Backend
 
@@ -264,10 +316,10 @@ backend/
 │
 ├── frames/                      # Saved captured frames (auto-created)
 │
-└── dobot_magician/              # Dobot SDK files
+└── dobot_magician/              # Dobot SDK files (place here)
     ├── DobotDll.dll
     ├── DobotDllType.py
-    └── README.md                 # SDK documentation
+    └── ...                # reamining SDK files
 ```
 
 ---

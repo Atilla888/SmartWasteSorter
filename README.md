@@ -205,7 +205,7 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 #### 1. Clone and Navigate
 
 ```bash
-cd my-sortingwaste-project
+cd <your-project-directory>
 ```
 
 #### 2. Backend Setup
@@ -223,10 +223,62 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Important**: Ensure the Dobot SDK files are in `backend/dobot_magician/`:
-- `DobotDll.dll`
+#### 3. Dobot SDK Setup
+
+**Important**: The official Dobot Magician SDK requires modifications to work correctly with this project. The SDK files are **not included** in this repository.
+
+**Step 1: Download Official SDK**
+1. Download the official Dobot Magician Python SDK from the Dobot website
+2. Extract the SDK files to a temporary location
+
+**Step 2: Copy SDK Files**
+Copy the following files from the official SDK to `backend/dobot_magician/`:
+- `DobotDll.dll` (Windows 64-bit)
 - `DobotDllType.py`
-- Supporting DLLs (msvcp120.dll, msvcr120.dll, Qt5*.dll)
+- `DobotControl.py`
+- Supporting DLLs: `msvcp120.dll`, `msvcr120.dll`, `Qt5Core.dll`, `Qt5Network.dll`, `Qt5SerialPort.dll`
+
+**Step 3: Modify `DobotDllType.py`**
+
+The official SDK's `load()` function uses relative paths that fail when the script is run from different directories. You must modify `backend/dobot_magician/DobotDllType.py`:
+
+**Why changes are needed:**
+- The original SDK uses `"./DobotDll.dll"` (relative path), which only works when running from the SDK directory
+- The original uses `CDLL` with `RTLD_GLOBAL` flag, which is Linux/Mac-specific and causes issues on Windows
+- The project needs to load the DLL from any working directory
+
+**Required modifications:**
+
+1. **Add import at the top** (after line 3, with other imports):
+   ```python
+   from pathlib import Path
+   ```
+
+2. **Replace the `load()` function** (around line 587-595) with:
+   ```python
+   def load():
+       dll_path = str(Path(__file__).resolve().parent / "DobotDll.dll")
+       print("Loading Dobot DLL from:", dll_path)
+       if platform.system() == "Windows":
+           print("您用的dll是64位，为了顺利运行，请保证您的python环境也是64位")
+           print("python环境是：",platform.architecture())
+           from ctypes import WinDLL
+           return WinDLL(dll_path)
+       elif platform.system() == "Darwin":
+           dylib_path = str(Path(__file__).resolve().parent / "libDobotDll.dylib")
+           return CDLL(dylib_path)
+       elif platform.system() == "Linux":
+           return CDLL("libDobotDll.so")
+   ```
+
+**What changed:**
+- **Absolute path resolution**: Uses `Path(__file__).resolve().parent` to find the DLL relative to the script's location, regardless of working directory
+- **Windows-specific loading**: Uses `WinDLL` instead of `CDLL` on Windows (more appropriate for Windows DLLs)
+- **Removed RTLD_GLOBAL**: This flag is Linux/Mac-specific and not needed on Windows
+- **macOS path fix**: Also uses absolute path for macOS dylib
+
+**Verification:**
+After making these changes, the SDK should load correctly when running the backend from any directory.
 
 #### 3. Frontend Setup
 
@@ -241,6 +293,8 @@ Place your trained YOLOv8 model at:
 ```
 backend/models/best.pt
 ```
+
+Or use existing model located at backend/models/best.pt
 
 If training a new model, see `training/README.md`.
 
@@ -289,7 +343,7 @@ Frontend will be available at: `http://localhost:3000`
 ## Project Structure
 
 ```
-my-sortingwaste-project/
+your-project-directory/
 ├── app/                          # Next.js App Router
 │   ├── api/                      # API routes (proxies to FastAPI)
 │   │   ├── capture/route.ts     # Image upload proxy
@@ -317,25 +371,22 @@ my-sortingwaste-project/
 │   │   ├── dobot_service.py      # Robot control
 │   │   └── COORDINATE_ADJUSTMENT_GUIDE.md  # Calibration guide
 │   │
-│   ├── utils/
-│   │   └── image_utils.py        # Image conversion utilities
-│   │
 │   ├── models/
-│   │   └── best.pt               # YOLOv8 model (place here)
+│   │   ├── best.onnx      # existing YOLOv8 model .onnx
+│   │   └── best.pt        # existing YOLOv8 model .pt (place here)
 │   │
-│   ├── frames/                    # Saved captured frames
+│   ├── utils/
+│   │   └── image_utils.py          # Image conversion utilities
 │   │
-│   ├── dobot_magician/           # Dobot SDK files
+│   ├── frames/                     # Saved captured frames
+│   │
+│   ├── dobot_magician/             # Dobot SDK files (place here)
 │   │   ├── DobotDll.dll
 │   │   ├── DobotDllType.py
-│   │   └── README.md              # SDK documentation
+│   │   ├── DobotControl.py
+│   │   └── ...                     # remaining SDK documentation
 │   │
-│   └── README.md                 # Backend-specific documentation
-│
-├── training/                      # ML model training
-│   ├── train.py                  # Training script
-│   ├── train.ipynb               # Jupyter notebook
-│   └── README.md                 # Training guide
+│   └── BACKEND.md                   # Backend-specific documentation
 │
 └── README.md                      # This file
 ```
@@ -376,17 +427,14 @@ my-sortingwaste-project/
 
 ## Additional Documentation
 
-- **Backend Details**: See `backend/README.md` for API endpoints, services, and environment variables
-- **Training Guide**: See `training/README.md` for ML model training instructions
+- **Backend Details**: See `backend/BACKEND.md` for API endpoints, services, and environment variables
 - **Coordinate Calibration**: See `backend/services/COORDINATE_ADJUSTMENT_GUIDE.md` for robot position setup
-- **Dobot SDK**: See `backend/dobot_magician/README.md` for SDK documentation
+- **Dobot SDK**: See `https://www.dobot-robots.com/service/download-center` for SDK documentation and files
+
+**Note:** ML model training instructions are not included in this repository. To train a YOLOv8 classification model, refer to the Ultralytics documentation and organize your dataset in class subfolders.
 
 ---
 
-## License
-
-This project is part of a university course (Applied Robotics / Computer Vision).
+This project is part of a university course (Applied Robotics).
 
 ---
-
-*Last Updated: Based on current codebase analysis*
