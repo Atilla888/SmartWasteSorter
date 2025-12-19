@@ -7,11 +7,11 @@ All coordinates are defined at the **TOP of `dobot_service.py`** (lines 28-92). 
 ### 1. **Bin Positions** (Lines 31-38)
 ```python
 BIN_POSITIONS = {
-    "paper": (200, 100, -30, 0),            # ← ADJUST HERE
-    "plastic": (250, 0, -30, 0),            # ← ADJUST HERE
-    "glass": (200, -100, -30, 0),           # ← ADJUST HERE
-    "biological": (150, 100, -30, 0),       # ← ADJUST HERE
-    "trash": (150, 0, -30, 0),              # ← ADJUST HERE
+    "paper": (0, 0, 0, 0),            # ← ADJUST HERE
+    "plastic": (0, 0, 0, 0),            # ← ADJUST HERE
+    "glass": (0, 0, 0, 0),           # ← ADJUST HERE
+    "biological": (0, 0, 0, 0),       # ← ADJUST HERE
+    "trash": (0, 0, 0, 0),              # ← ADJUST HERE
 }
 ```
 **Format:** `(x, y, z, r)` in millimeters
@@ -22,20 +22,20 @@ BIN_POSITIONS = {
 
 ### 2. **Pickup Position** (Line 81)
 ```python
-PICKUP_POSITION = (200, 0, -20, 0)  # ← ADJUST HERE
+PICKUP_POSITION = (250, -135, 80, 0)  # ← ADJUST HERE
 ```
 **Where items are placed for sorting** - This is where the robot picks up items.
 
 ### 3. **Home Position** (Line 86)
 ```python
-HOME_POSITION = (250, 0, 50, 0)  # ← ADJUST HERE
+HOME_POSITION = (200, 0, 80, 0)  # ← ADJUST HERE
 ```
 **Safe starting/resting position** - Where robot returns after sorting.
 
 ### 4. **Height Offsets** (Lines 91-92)
 ```python
-PICK_HEIGHT_OFFSET = -30  # ← ADJUST HERE (how far down for picking)
-PLACE_HEIGHT_OFFSET = -40  # ← ADJUST HERE (how far down for placing)
+PICK_HEIGHT_OFFSET = -20  # ← ADJUST HERE (how far down for picking)
+PLACE_HEIGHT_OFFSET = -10  # ← ADJUST HERE (how far down for placing)
 ```
 **How far down the robot goes** from the base Z position when picking/placing.
 
@@ -47,7 +47,7 @@ Here's the **exact sequence** showing when the gripper is OPEN vs CLOSED:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   GRIPPER STATE DIAGRAM                      │
+│                   GRIPPER STATE DIAGRAM                     │
 └─────────────────────────────────────────────────────────────┘
 
 START: Robot at HOME position
@@ -57,35 +57,35 @@ START: Robot at HOME position
    ┌─────────────────────────────────────────────┐
    │ STEP 1: Move above pickup position          │
    │ Position: (pickup_x, pickup_y, pickup_z+20) │
-   │ Gripper: OPEN ⬜                             │
+   │ Gripper: OPEN                               │
    └─────────────────────────────────────────────┘
    ↓
    ┌─────────────────────────────────────────────┐
    │ STEP 2: Descend to pickup position          │
    │ Position: (pickup_x, pickup_y,              │
    │            pickup_z + PICK_HEIGHT_OFFSET)   │
-   │ Gripper: OPEN ⬜                             │
+   │ Gripper: OPEN                               │
    │ NOTE: Robot now at object level             │
    └─────────────────────────────────────────────┘
    ↓
    ┌─────────────────────────────────────────────┐
    │ STEP 3: PICK - Close gripper                │
    │ Action: pick() → Gripper CLOSES             │
-   │ Gripper: CLOSED ⬛                           │
+   │ Gripper: CLOSED                             │
    │ NOTE: Object is now gripped!                │
    └─────────────────────────────────────────────┘
    ↓
    ┌─────────────────────────────────────────────┐
    │ STEP 4: Lift object up                      │
    │ Position: (pickup_x, pickup_y, pickup_z+20) │
-   │ Gripper: CLOSED ⬛                           │
+   │ Gripper: CLOSED                             │
    │ NOTE: Object is held while moving           │
    └─────────────────────────────────────────────┘
    ↓
    ┌─────────────────────────────────────────────┐
    │ STEP 5: Move above bin position             │
    │ Position: (bin_x, bin_y, bin_z+20)          │
-   │ Gripper: CLOSED ⬛                           │
+   │ Gripper: CLOSED                             │
    │ NOTE: Object still gripped                  │
    └─────────────────────────────────────────────┘
    ↓
@@ -93,27 +93,27 @@ START: Robot at HOME position
    │ STEP 6: Descend to bin position             │
    │ Position: (bin_x, bin_y,                    │
    │            bin_z + PLACE_HEIGHT_OFFSET)     │
-   │ Gripper: CLOSED ⬛                           │
+   │ Gripper: CLOSED                             │
    │ NOTE: Object ready to be placed             │
    └─────────────────────────────────────────────┘
    ↓
    ┌─────────────────────────────────────────────┐
    │ STEP 7: PLACE - Open gripper                │
    │ Action: place() → Gripper OPENS             │
-   │ Gripper: OPEN ⬜                             │
+   │ Gripper: OPEN                               │
    │ NOTE: Object is released/dropped            │
    └─────────────────────────────────────────────┘
    ↓
    ┌─────────────────────────────────────────────┐
    │ STEP 8: Lift up (gripper now empty)         │
    │ Position: (bin_x, bin_y, bin_z+20)          │
-   │ Gripper: OPEN ⬜                             │
+   │ Gripper: OPEN                               │
    └─────────────────────────────────────────────┘
    ↓
    ┌─────────────────────────────────────────────┐
    │ STEP 9: Return to HOME position             │
    │ Position: HOME_POSITION                     │
-   │ Gripper: OPEN ⬜                             │
+   │ Gripper: OPEN                               │
    └─────────────────────────────────────────────┘
    
 END: Robot at HOME, ready for next item
@@ -127,15 +127,15 @@ END: Robot at HOME, ready for next item
 
 #### **Pickup Area:**
 ```python
-PICKUP_POSITION = (200, 0, -20, 0)  # Base pickup position
+PICKUP_POSITION = (250, -135, 80, 0)  # Base pickup position
 
 # Step 1: Above pickup (Gripper: OPEN)
 move_to(pickup_x, pickup_y, pickup_z + 20, pickup_r)
-# = (200, 0, -20 + 20, 0) = (200, 0, 0, 0)
+# = (250, -135, 80 + 20, 0) = (250, -135, 100, 0)
 
 # Step 2: At pickup level (Gripper: OPEN)
 move_to(pickup_x, pickup_y, pickup_z + PICK_HEIGHT_OFFSET, pickup_r)
-# = (200, 0, -20 + (-30), 0) = (200, 0, -50, 0)
+# = (250, -135, 80 + (-30), 0) = (250, -135, 50, 0)
 # ↑ This is where gripper will CLOSE
 
 # Step 3: Close gripper (Gripper: CLOSES) ⬛
@@ -143,7 +143,7 @@ pick()  # Gripper closes here!
 
 # Step 4: Lift with object (Gripper: CLOSED) ⬛
 move_to(pickup_x, pickup_y, pickup_z + 20, pickup_r)
-# = (200, 0, 0, 0)
+# = (250, -135, 100, 0)
 ```
 
 #### **Bin Area:**
@@ -185,7 +185,7 @@ home()  # Moves to HOME_POSITION
 
 2. **Calibrate Pickup Position:**
    ```python
-   PICKUP_POSITION = (200, 0, -20, 0)
+   PICKUP_POSITION = (250, -135, 80, 0)
    ```
    - Place an item at a known location
    - Manually move robot to that position
@@ -222,17 +222,17 @@ home()  # Moves to HOME_POSITION
 
 ## 🎯 Quick Reference: Gripper States
 
-| Step | Position | Gripper State | Action |
-|------|----------|---------------|--------|
-| 1 | Above pickup | OPEN ⬜ | Move to pickup area |
-| 2 | At pickup level | OPEN ⬜ | Descend to object |
-| 3 | At pickup level | **CLOSES** ⬛ | **Close gripper (PICK)** |
-| 4 | Above pickup | CLOSED ⬛ | Lift object |
-| 5 | Above bin | CLOSED ⬛ | Move to bin |
-| 6 | At bin level | CLOSED ⬛ | Descend to bin |
-| 7 | At bin level | **OPENS** ⬜ | **Open gripper (PLACE)** |
-| 8 | Above bin | OPEN ⬜ | Lift up |
-| 9 | Home | OPEN ⬜ | Return home |
+| Step | Position        | Gripper State | Action                  |
+|------|-----------------|---------------|------------------------ |
+| 1    | Above pickup    | OPEN          | Move to pickup area     |
+| 2    | At pickup level | OPEN          | Descend to object       |
+| 3    | At pickup level | **CLOSES**    | **Close gripper (PICK)**|
+| 4    | Above pickup    | CLOSED        | Lift object             |
+| 5    | Above bin       | CLOSED        | Move to bin             |
+| 6    | At bin level    | CLOSED        | Descend to bin          |
+| 7    | At bin level    | **OPENS**     | **Open gripper (PLACE)**|
+| 8    | Above bin       | OPEN          | Lift up                 |
+| 9    | Home            | OPEN          | Return home             |
 
 ---
 

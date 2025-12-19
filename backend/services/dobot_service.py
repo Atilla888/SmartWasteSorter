@@ -92,7 +92,7 @@ def map_class_to_bin(ml_prediction: str) -> str:
 # Pickup position (where items are placed for sorting)
 # ADJUST THIS: Position where you place items for the robot to pick up
 # Gripper will be OPEN when robot arrives here, then CLOSES to pick object
-PICKUP_POSITION = (250, -135, 90, 0)  # (x, y, z, r) - ADJUST ME!
+PICKUP_POSITION = (250, -135, 80, 0)  # (x, y, z, r) - ADJUST ME!
 PICK_HEIGHT_OFFSET = -20
 PLACE_HEIGHT_OFFSET = -10
 # Home position (safe starting position - robot arm rest position)

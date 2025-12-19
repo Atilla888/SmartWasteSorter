@@ -4,8 +4,8 @@ Snapshot service for extracting single frames from DroidCam MJPEG stream.
 import httpx
 
 # JPEG markers
-JPEG_START = b'\xff\xd8'  # Start of Image (SOI)
-JPEG_END = b'\xff\xd9'    # End of Image (EOI)
+JPEG_START = b'\xff\xd8'  # Start of Image (SOI) FF D8
+JPEG_END = b'\xff\xd9'    # End of Image (EOI) FF D9
 
 # Safety limits
 MAX_FRAME_BYTES = 1_500_000  # ~1.5 MB cap to avoid runaway buffering
