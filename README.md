@@ -293,7 +293,7 @@ cd frontend
 npm install
 ```
 
-**Note:** The frontend is now located in the `/frontend` directory. All Next.js commands should be run from within this directory.
+**Note:** All Next.js commands should be run from within this directory.
 
 #### 4. ML Model
 
@@ -358,7 +358,7 @@ Frontend will be available at: `http://localhost:3000`
 2. Enter DroidCam IP and connect
 3. Place a waste item in the pickup area
 4. Click "Capture & Send"
-5. Watch the robot sort the item!
+5. Watch the robot sort the item
 
 
 ## Project Structure
@@ -429,14 +429,12 @@ your-project-directory/
 1. **No Confidence Threshold**: Robot sorts items even with low confidence predictions
 2. **Automatic Sorting**: No manual confirmation before robot action
 3. **Blocking Operations**: Robot movements block API response (synchronous)
-4. **Model Path**: Training saves to `training/model_output/run/weights/best.pt`, but application expects `backend/models/best.pt` (manual copy required)
-5. **No Error Recovery**: If robot fails mid-sequence, no automatic retry mechanism
-6. **Single Camera Connection**: DroidCam Free only allows one connection at a time (preview must pause for capture)
-7. **Windows Only**: Dobot SDK requires Windows OS
-8. **Coordinate Calibration Required**: Bin positions must be manually calibrated for each physical setup
-9. **File Size Limit**: Maximum upload size is 10MB (configurable via `MAX_FILE_SIZE` env var)
+4. **No Error Recovery**: If robot fails mid-sequence, no automatic retry mechanism
+5. **Single Camera Connection**: DroidCam Free only allows one connection at a time (preview must pause for capture)
+6. **Windows Only**: Dobot SDK requires Windows OS
+7. **Coordinate Calibration Required**: Bin positions must be manually calibrated for each physical setup
 
-### Recent Enhancements
+### Recent Enhancements [29.12.2025]
 
 The following improvements have been implemented:
 
@@ -451,7 +449,6 @@ The following improvements have been implemented:
 
 - **DroidCam Free Limitation**: Only one connection to `/video` stream at a time
 - **USB Connection**: Dobot must be connected via USB (COM port)
-- **Synchronous Robot Control**: All movements are blocking (wait for completion)
 - **No Real-time Streaming**: ML inference runs on-demand, not continuously
 
 ### Future Improvements
@@ -468,9 +465,7 @@ The following improvements have been implemented:
 
 ## Additional Documentation
 
-- **Backend Details**: See `backend/BACKEND.md` for API endpoints, services, and environment variables
-- **Coordinate Calibration**: See `backend/services/COORDINATE_ADJUSTMENT_GUIDE.md` for robot position setup
-- **Enhancement Proposals**: See `ENHANCEMENT_PROPOSAL.md` for detailed enhancement documentation
+- **Backend Details**: See `backend/BACKEND.md` for API endpoints, services, and environment variables, robot position setup
 - **Dobot SDK**: See `https://www.dobot-robots.com/service/download-center` for SDK documentation and files
 
 **Note:** ML model training instructions are not included in this repository. To train a YOLOv8 classification model, refer to the Ultralytics documentation and organize your dataset in class subfolders.
