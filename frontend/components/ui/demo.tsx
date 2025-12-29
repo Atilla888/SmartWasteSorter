@@ -88,19 +88,21 @@ export function SplineSceneBasic() {
       await new Promise((res) => setTimeout(res, 250))
 
       // Step 3: Capture frame via backend proxy (extracts from MJPEG stream)
-      setCaptureStatus("Capturing frame...")
+      setCaptureStatus("Capturing frame from camera...")
       const blob = await captureFrame(cameraIp.trim())
 
       // Step 4: Send to backend
-      setCaptureStatus("Uploading...")
+      setCaptureStatus("Uploading image to server...")
       const formData = new FormData()
       formData.append("file", blob, "frame.jpg")
 
+      setCaptureStatus("Processing image...")
       const res = await fetch("/api/capture", {
         method: "POST",
         body: formData
       })
 
+      setCaptureStatus("Running ML inference...")
       const json = await res.json()
       
       // Debug logging
@@ -114,17 +116,44 @@ export function SplineSceneBasic() {
         // Format confidence as percentage (e.g., 0.931 -> 93.1%)
         const confidencePercent = (confidence * 100).toFixed(1)
         
-        // Display success message with prediction and confidence
-        setCaptureStatus(
-          `✓ Image sent successfully! Saved as: ${json.saved_as} | Prediction: ${prediction} (${confidencePercent}%)`
-        )
+        // Show robot action status if available
+        let statusMessage = `✓ Image processed successfully! Saved as: ${json.saved_as} | Prediction: ${prediction} (${confidencePercent}%)`
+        if (json.robot_action) {
+          statusMessage += ` | Robot: ${json.robot_action}`
+        }
+        
+        setCaptureStatus(statusMessage)
       } else {
-        setCaptureStatus(`✗ Upload failed: ${json.error || "Unknown error"}`)
+        // Enhanced error message with troubleshooting
+        const errorMsg = json.error || "Unknown error"
+        let friendlyError = `✗ Processing failed: ${errorMsg}`
+        
+        // Add troubleshooting hints based on error type
+        if (errorMsg.includes("too large") || errorMsg.includes("File size")) {
+          friendlyError += " | Tip: Try using a smaller image or compress the image before uploading."
+        } else if (errorMsg.includes("decode") || errorMsg.includes("image format")) {
+          friendlyError += " | Tip: Ensure the file is a valid image format (JPEG, PNG, etc.)."
+        } else if (errorMsg.includes("model") || errorMsg.includes("ML")) {
+          friendlyError += " | Tip: Check that the ML model file exists and is properly configured."
+        } else if (errorMsg.includes("disk") || errorMsg.includes("permission")) {
+          friendlyError += " | Tip: Check disk space and file permissions on the server."
+        }
+        
+        setCaptureStatus(friendlyError)
       }
 
     } catch (err) {
       console.error(err)
-      setCaptureStatus(`✗ Error capturing or uploading: ${err instanceof Error ? err.message : "Unknown error"}`)
+      let errorMessage = "Unknown error occurred"
+      
+      if (err instanceof Error) {
+        errorMessage = err.message
+      } else if (typeof err === 'string') {
+        errorMessage = err
+      }
+      
+      // The error message from captureFrame already includes troubleshooting hints
+      setCaptureStatus(`✗ Error: ${errorMessage}`)
     } finally {
       // Step 5: Resume preview after capture completes
       setIsCapturing(false)

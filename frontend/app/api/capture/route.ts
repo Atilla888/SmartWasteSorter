@@ -34,8 +34,20 @@ export async function POST(request: NextRequest) {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+      const errorMsg = errorData.error || 'Backend error'
+      
+      // Enhance error message based on status code
+      let friendlyError = errorMsg
+      if (response.status === 413) {
+        friendlyError = `File too large: ${errorMsg}. Please use a smaller image.`
+      } else if (response.status >= 500) {
+        friendlyError = `Server error: ${errorMsg}. Please try again or contact support.`
+      } else if (response.status === 400) {
+        friendlyError = `Invalid request: ${errorMsg}. Please check your input.`
+      }
+      
       return NextResponse.json(
-        { success: false, error: errorData.error || 'Backend error' },
+        { success: false, error: friendlyError },
         { status: response.status }
       )
     }

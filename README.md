@@ -88,53 +88,50 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 
 ### End-to-End Pipeline
 
-```
-1. User clicks "Capture & Send"
-   ↓
-2. Frontend pauses MJPEG preview (releases DroidCam connection)
-   ↓
-3. Backend extracts single JPEG frame from DroidCam stream
-   ↓
-4. Frontend uploads frame to backend
-   ↓
-5. Backend saves frame and runs ML inference (YOLOv8)
-   ↓
-6. Backend triggers robot sorting based on prediction
-   ↓
-7. Robot executes 9-step sorting sequence:
-   - Move to pickup position
-   - Descend and close gripper
-   - Lift item
-   - Move to appropriate bin
-   - Descend and open gripper
-   - Return home
-   ↓
-8. Results returned to frontend and displayed
-   ↓
-9. Preview resumes automatically
-```
 
 ### Detailed Step-by-Step
 
 **Phase 1: Image Capture**
 1. User clicks "Capture & Send" button
-2. Frontend pauses MJPEG preview stream
-3. 250ms delay to allow DroidCam to free the connection
-4. Backend connects to DroidCam MJPEG stream (`http://{ip}:4747/video`)
-5. Backend extracts first JPEG frame (finds SOI/EOI markers)
-6. JPEG blob returned to frontend
+2. Frontend validates camera is connected and IP address is provided
+3. Frontend shows status: "Pausing preview..."
+4. Frontend pauses MJPEG preview stream (sets `previewPaused = true`)
+5. 250ms delay to allow DroidCam to free the connection
+6. Frontend shows status: "Capturing frame from camera..."
+7. Frontend calls `/api/snapshot?ip={ip}` endpoint
+8. Backend connects to DroidCam MJPEG stream (`http://{ip}:4747/video`)
+9. Backend extracts first JPEG frame (finds SOI/EOI markers)
+10. Backend returns JPEG blob with enhanced error handling:
+    - Invalid IP: Clear error message with format example
+    - Connection errors: Troubleshooting hints (check camera, network, app)
+    - Timeout errors: Suggests camera may be busy
+    - Stream errors: Indicates corrupted stream
 
 **Phase 2: Image Processing & ML Inference**
-1. Frontend creates FormData with captured image
-2. POST request to `/api/capture` endpoint
-3. Backend decodes image (PIL Image, RGB format)
-4. Image saved to `backend/frames/` with timestamp filename
-5. YOLOv8 model loaded (cached after first load)
-6. Model inference runs on image
-7. Top-1 prediction and confidence extracted
+1. Frontend shows status: "Uploading image to server..."
+2. Frontend creates FormData with captured image blob
+3. Frontend shows status: "Processing image..."
+4. POST request to `/api/capture` endpoint
+5. **Backend validation steps:**
+   - Validates file size (default max: 10MB, configurable via `MAX_FILE_SIZE` env var)
+   - Validates file is not empty
+   - Returns clear error if file too large or empty
+6. Backend decodes image (PIL Image, RGB format) with error handling:
+   - Returns user-friendly error if image format is invalid
+7. Backend sanitizes filename:
+   - Removes directory traversal attempts
+   - Removes invalid filesystem characters
+   - Limits filename length to 255 characters
+8. Image saved to `backend/frames/` with sanitized timestamp filename
+9. Frontend shows status: "Running ML inference..."
+10. YOLOv8 model loaded (cached after first load, lazy loading)
+11. Model inference runs on image with enhanced error handling:
+    - FileNotFoundError: Clear message if model missing
+    - RuntimeError: Indicates model corruption or incompatibility
+12. Top-1 prediction and confidence extracted
 
 **Phase 3: Robot Sorting**
-1. Prediction class name mapped to bin position
+1. Prediction class name mapped to bin position (paper, plastic, glass, biological, trash)
 2. Dobot service auto-connects if needed
 3. Robot executes sorting sequence:
    - Move above pickup position
@@ -146,16 +143,24 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
    - Open gripper (place item)
    - Lift up
    - Return to home position
+4. Robot operation status captured (success or error message)
 
-**Phase 4: Response**
+**Phase 4: Response & Display**
 1. Backend builds JSON response with:
    - Success status
    - Saved filename
    - Prediction class
-   - Confidence score
-   - Robot action status
-2. Frontend displays results
-3. Preview stream resumes
+   - Confidence score (0.0-1.0)
+   - Robot action status (includes error message if robot failed)
+2. Frontend receives response and formats display:
+   - Success: "Image processed successfully! Saved as: {filename} | Prediction: {class} ({confidence}%) | Robot: {status}"
+   - Error: "Processing failed: {error} | Tip: {troubleshooting_hint}"
+3. Error messages include context-specific troubleshooting hints:
+   - File size errors: Suggests using smaller image
+   - Image format errors: Suggests valid formats
+   - Model errors: Suggests checking model configuration
+   - Disk errors: Suggests checking space and permissions
+4. Preview stream resumes automatically (`previewPaused = false`)
 
 ---
 
@@ -284,8 +289,11 @@ After making these changes, the SDK should load correctly when running the backe
 
 ```bash
 # From project root
+cd frontend
 npm install
 ```
+
+**Note:** The frontend is now located in the `/frontend` directory. All Next.js commands should be run from within this directory.
 
 #### 4. ML Model
 
@@ -296,11 +304,11 @@ backend/models/best.pt
 
 Or use existing model located at backend/models/best.pt
 
-If training a new model, see `training/README.md`.
-
 ### Running the Application
 
 #### Start Backend
+
+**Important:** The backend now validates environment variables on startup. Optional variables will show warnings, but the server will start with defaults.
 
 From project root:
 ```bash
@@ -312,11 +320,25 @@ Or from `backend/` directory:
 python main.py
 ```
 
+**Environment Variables (Optional):**
+- `YOLO_MODEL_PATH`: Path to YOLO model file (defaults to `backend/models/best.pt`)
+- `YOLO_DEVICE`: Device for inference: `cpu` or `cuda` (defaults to `cpu`)
+- `MAX_FILE_SIZE`: Maximum file size in bytes (defaults to 10MB = 10485760)
+- `FASTAPI_URL`: Backend URL for frontend (defaults to `http://localhost:8000`)
+
+The backend will validate these on startup and show warnings if using defaults.
+
 Backend will be available at: `http://localhost:8000`
 
 #### Start Frontend
 
 From project root:
+```bash
+cd frontend
+npm run dev
+```
+
+Or from `frontend/` directory:
 ```bash
 npm run dev
 ```
@@ -338,56 +360,63 @@ Frontend will be available at: `http://localhost:3000`
 4. Click "Capture & Send"
 5. Watch the robot sort the item!
 
----
 
 ## Project Structure
 
 ```
 your-project-directory/
-├── app/                          # Next.js App Router
-│   ├── api/                      # API routes (proxies to FastAPI)
-│   │   ├── capture/route.ts     # Image upload proxy
-│   │   └── snapshot/route.ts    # Frame extraction proxy
-│   ├── page.tsx                  # Main page
-│   └── layout.tsx
+├── frontend/                       # Next.js frontend application
+│   ├── app/                       # Next.js App Router
+│   │   ├── api/                   # API routes (proxies to FastAPI)
+│   │   │   ├── capture/route.ts  # Image upload proxy
+│   │   │   └── snapshot/route.ts # Frame extraction proxy
+│   │   ├── page.tsx               # Main page
+│   │   └── layout.tsx
+│   │
+│   ├── components/                 # React components
+│   │   ├── sorter/
+│   │   │   └── CameraFeed.tsx     # MJPEG preview component
+│   │   └── ui/                    # shadcn/ui components
+│   │       └── demo.tsx           # Main control panel
+│   │
+│   ├── lib/
+│   │   └── sorter/
+│   │       └── capture.ts         # Frame capture utility
+│   │
+│   ├── public/                     # Static assets
+│   ├── package.json               # Frontend dependencies
+│   ├── next.config.ts             # Next.js configuration
+│   └── tsconfig.json              # TypeScript configuration
 │
-├── components/                    # React components
-│   ├── sorter/
-│   │   └── CameraFeed.tsx        # MJPEG preview component
-│   └── ui/                       # shadcn/ui components
-│       └── demo.tsx              # Main control panel
-│
-├── lib/
-│   └── sorter/
-│       └── capture.ts            # Frame capture utility
-│
-├── backend/                       # FastAPI backend
-│   ├── main.py                   # FastAPI app entry point
-│   ├── requirements.txt          # Python dependencies
+├── backend/                        # FastAPI backend
+│   ├── main.py                    # FastAPI app entry point
+│   ├── requirements.txt           # Python dependencies
 │   │
 │   ├── services/
-│   │   ├── camera_service.py     # ML inference & image processing
-│   │   ├── snapshot_service.py   # DroidCam frame extraction
-│   │   ├── dobot_service.py      # Robot control
+│   │   ├── camera_service.py      # ML inference & image processing
+│   │   ├── snapshot_service.py    # DroidCam frame extraction
+│   │   ├── dobot_service.py       # Robot control
 │   │   └── COORDINATE_ADJUSTMENT_GUIDE.md  # Calibration guide
 │   │
 │   ├── models/
-│   │   ├── best.onnx      # existing YOLOv8 model .onnx
-│   │   └── best.pt        # existing YOLOv8 model .pt (place here)
+│   │   ├── best.onnx              # YOLOv8 model .onnx
+│   │   └── best.pt                # YOLOv8 model .pt (place here)
 │   │
 │   ├── utils/
-│   │   └── image_utils.py          # Image conversion utilities
+│   │   └── image_utils.py         # Image conversion utilities
 │   │
-│   ├── frames/                     # Saved captured frames
+│   ├── frames/                    # Saved captured frames
 │   │
-│   ├── dobot_magician/             # Dobot SDK files (place here)
+│   ├── dobot_magician/            # Dobot SDK files (place here)
 │   │   ├── DobotDll.dll
 │   │   ├── DobotDllType.py
 │   │   ├── DobotControl.py
-│   │   └── ...                     # remaining SDK documentation
+│   │   └── ...                    # remaining SDK files
 │   │
-│   └── BACKEND.md                   # Backend-specific documentation
+│   └── BACKEND.md                 # Backend-specific documentation
 │
+├── docs/                          # Additional documentation
+├── training/                      # ML model training data and scripts
 └── README.md                      # This file
 ```
 
@@ -405,6 +434,18 @@ your-project-directory/
 6. **Single Camera Connection**: DroidCam Free only allows one connection at a time (preview must pause for capture)
 7. **Windows Only**: Dobot SDK requires Windows OS
 8. **Coordinate Calibration Required**: Bin positions must be manually calibrated for each physical setup
+9. **File Size Limit**: Maximum upload size is 10MB (configurable via `MAX_FILE_SIZE` env var)
+
+### Recent Enhancements
+
+The following improvements have been implemented:
+
+1. **File Size Validation**: Images larger than 10MB are rejected with clear error messages
+2. **Environment Variable Validation**: Backend validates configuration on startup with helpful warnings
+3. **Progress Indicators**: Real-time status updates during processing ("Pausing preview...", "Capturing frame...", "Processing image...", "Running ML inference...")
+4. **Enhanced Error Messages**: All errors include context-specific troubleshooting hints and user-friendly descriptions
+5. **Filename Sanitization**: All saved filenames are sanitized to prevent security issues (directory traversal, invalid characters)
+6. **Better Error Handling**: Comprehensive error handling at each processing stage with specific error messages
 
 ### Technical Constraints
 
@@ -429,9 +470,23 @@ your-project-directory/
 
 - **Backend Details**: See `backend/BACKEND.md` for API endpoints, services, and environment variables
 - **Coordinate Calibration**: See `backend/services/COORDINATE_ADJUSTMENT_GUIDE.md` for robot position setup
+- **Enhancement Proposals**: See `ENHANCEMENT_PROPOSAL.md` for detailed enhancement documentation
 - **Dobot SDK**: See `https://www.dobot-robots.com/service/download-center` for SDK documentation and files
 
 **Note:** ML model training instructions are not included in this repository. To train a YOLOv8 classification model, refer to the Ultralytics documentation and organize your dataset in class subfolders.
+
+## Error Handling & Troubleshooting
+
+The application now includes comprehensive error handling with user-friendly messages:
+
+- **File Size Errors**: Clear messages when files exceed 10MB limit, with suggestions to use smaller images
+- **Image Format Errors**: Helpful messages when invalid image formats are uploaded
+- **Camera Connection Errors**: Troubleshooting hints for DroidCam connection issues (check power, IP, network, app status)
+- **ML Model Errors**: Clear messages if model is missing or corrupted
+- **Robot Errors**: Robot operation status included in response even if robot fails (ML prediction still returned)
+- **Network Errors**: Timeout and connection error messages with retry suggestions
+
+All error messages include context-specific troubleshooting tips to help users resolve issues independently.
 
 ---
 

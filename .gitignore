@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+frontend/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -15,7 +16,9 @@
 
 # next.js
 /.next/
+frontend/.next/
 /out/
+frontend/out/
 
 # production
 /build
@@ -39,6 +42,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+frontend/next-env.d.ts
 
 # Ignore Python virtual environments
 venv/
@@ -65,6 +69,7 @@ training/model_output/
 !backend/models/best.pt
 # Allow ONNX exports
 !backend/models/*.onnx
+!backend/dobot_magician/
 
 # Ignore weight checkpoints inside training
 training/**/*.pt

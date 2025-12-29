@@ -2,6 +2,7 @@
 Camera service for processing captured frames.
 """
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +47,9 @@ else:
 # Optional: choose device (cpu by default; set CUDA via env if available)
 MODEL_DEVICE = os.getenv("YOLO_DEVICE", "cpu")
 
+# File size limits
+MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 10 * 1024 * 1024))  # 10MB default
+
 
 def _load_model() -> YOLO:
     """
@@ -65,6 +69,38 @@ def _load_model() -> YOLO:
 def ensure_frames_directory():
     """Ensure the frames directory exists."""
     FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize filename to prevent directory traversal and invalid characters.
+    
+    Args:
+        filename: Original filename
+        
+    Returns:
+        Sanitized filename safe for filesystem
+    """
+    # Remove any path components (directory traversal protection)
+    filename = os.path.basename(filename)
+    
+    # Remove or replace invalid characters
+    # Keep alphanumeric, dots, hyphens, underscores
+    filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
+    
+    # Remove leading/trailing dots and spaces
+    filename = filename.strip('. ')
+    
+    # Ensure filename is not empty
+    if not filename:
+        filename = "frame"
+    
+    # Limit length to prevent filesystem issues
+    if len(filename) > 255:
+        name, ext = os.path.splitext(filename)
+        filename = name[:250] + ext
+    
+    return filename
 
 
 def run_inference(image: Image.Image) -> dict:
@@ -135,27 +171,77 @@ def process_frame(file: UploadFile) -> dict:
         }
     """
     try:
+        # Step 1: Validate file size
+        file.file.seek(0, 2)  # Seek to end
+        file_size = file.file.tell()
+        file.file.seek(0)  # Reset to start
+        
+        if file_size > MAX_FILE_SIZE:
+            file_size_mb = file_size / 1024 / 1024
+            max_size_mb = MAX_FILE_SIZE / 1024 / 1024
+            return {
+                "success": False,
+                "error": f"File too large ({file_size_mb:.2f}MB). Maximum allowed size: {max_size_mb}MB. Please use a smaller image."
+            }
+        
+        if file_size == 0:
+            return {
+                "success": False,
+                "error": "Empty file received. Please ensure the image file is not empty."
+            }
+        
         # Ensure frames directory exists
         ensure_frames_directory()
         
-        # Decode uploaded file into PIL Image (RGB)
-        image = read_upload_image(file)
+        # Step 2: Decode uploaded file into PIL Image (RGB)
+        try:
+            image = read_upload_image(file)
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to decode image. Please ensure the file is a valid image format (JPEG, PNG, etc.). Error: {str(e)}"
+            }
         
-        # Generate unique filename with timestamp
+        # Step 3: Generate unique filename with timestamp and sanitize
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # milliseconds
-        filename = f"frame_{timestamp}.jpg"
+        base_filename = f"frame_{timestamp}.jpg"
+        filename = sanitize_filename(base_filename)
         filepath = os.path.join(FRAMES_DIR, filename)
         
-        # Save frame to frames directory
-        image.save(filepath, "JPEG", quality=95)
+        # Step 4: Save frame to frames directory
+        try:
+            image.save(filepath, "JPEG", quality=95)
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to save image to disk. Please check disk space and permissions. Error: {str(e)}"
+            }
         
-        # Run ML inference on the saved image
-        inference_result = run_inference(image)
+        # Step 5: Run ML inference on the saved image
+        try:
+            inference_result = run_inference(image)
+        except FileNotFoundError as e:
+            return {
+                "success": False,
+                "error": f"ML model not found. Please ensure the model file exists at {MODEL_PATH}. Error: {str(e)}"
+            }
+        except RuntimeError as e:
+            return {
+                "success": False,
+                "error": f"ML inference failed. The model may be corrupted or incompatible. Error: {str(e)}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Unexpected error during ML inference. Error: {str(e)}"
+            }
         
-        # Trigger robot sorting based on prediction
+        # Step 6: Trigger robot sorting based on prediction
         print(f"\n{'='*60}")
         print(f"TRIGGERING ROBOT SORTING for prediction: {inference_result['prediction']}")
         print(f"{'='*60}")
+        robot_success = False
+        robot_message = "Robot not available"
         try:
             robot_success, robot_message = sort_with_robot(inference_result["prediction"])
             print(f"Robot operation completed: success={robot_success}, message={robot_message}")
@@ -164,7 +250,7 @@ def process_frame(file: UploadFile) -> dict:
             import traceback
             traceback.print_exc()
             robot_success = False
-            robot_message = f"Exception: {str(e)}"
+            robot_message = f"Robot error: {str(e)}"
         print(f"{'='*60}\n")
         
         # Build response
@@ -184,8 +270,12 @@ def process_frame(file: UploadFile) -> dict:
         return response
         
     except Exception as e:
+        # Catch-all for any unexpected errors
+        error_msg = str(e)
+        if not error_msg:
+            error_msg = "An unexpected error occurred during image processing."
         return {
             "success": False,
-            "error": str(e)
+            "error": f"Processing failed: {error_msg}. Please try again or contact support if the issue persists."
         }
 

@@ -131,7 +131,7 @@ export function CameraFeed({ ipAddress, paused = false }: CameraFeedProps) {
             <img
               id="camera-stream"
               ref={imgRef}
-              src={streamUrl}
+              src={streamUrl || undefined}
               alt="Camera feed"
               onLoad={handleImageLoad}
               onError={handleImageError}
