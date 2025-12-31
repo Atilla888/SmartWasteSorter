@@ -30,16 +30,65 @@ except ImportError as e:
 # ADJUST THESE: Set the exact coordinates where each bin is located
 # Gripper will be CLOSED when robot arrives at bin, then OPENS to release object
 BIN_POSITIONS = {
-    "paper": (187, 110, 50, 0),  # z-40          # Paper bin - ADJUST ME!
-    "plastic": (91, 110, 50, 0),            # Plastic bin - ADJUST ME!
-    "glass": (0, 150, 50, 0),           # Glass bin - ADJUST ME!
-    "biological": (0, 190, 50, 0),       # Biological waste bin - ADJUST ME!
-    "trash": (0, 230, 50, 0),              # General trash bin - ADJUST ME!
+    "paper": (200, -15, 60, 0),  # z-40          # Paper bin - ADJUST ME!
+    "plastic": (200, -100, 60, 0),            # Plastic bin - ADJUST ME!
+    "glass": (200, -70, 60, 0),           # Glass bin - ADJUST ME!
+    "biological": (200, 60, 60, 0),       # Biological waste bin - ADJUST ME!
+    "trash": (200, 100, 60, 0),              # General trash bin - ADJUST ME!
 }
 
+# ============================================================================
+# COORDINATE CALIBRATION SECTION
+# ============================================================================
+# Adjust these coordinates to match your physical setup.
+# All coordinates are in millimeters (mm).
+# Format: (x, y, z, r) where:
+#   - x: Forward/backward from robot base (mm)
+#   - y: Left/right from robot base (mm)
+#   - z: Up/down height (mm, negative = lower, positive = higher)
+#   - r: Rotation angle (degrees)
+#
+# See COORDINATE_ADJUSTMENT_GUIDE.md for detailed explanation.
+# ============================================================================
+
+# Pickup position (where items are placed for sorting)
+# ADJUST THIS: Position where you place items for the robot to pick up
+# Gripper will be OPEN when robot arrives here, then CLOSES to pick object
+PICKUP_POSITION = (118, -220, 100, 0)  # (x, y, z, r) - ADJUST ME!
+PICK_HEIGHT_OFFSET = -35
+PLACE_HEIGHT_OFFSET = -20
+# Height offsets - ADJUST THESE to fine-tune pick/place heights
+# How far BELOW the base position the robot goes when picking/placing
+# More negative = lower (robot goes down further)
+# Less negative = higher (robot doesn't go as low)
+#PICK_HEIGHT_OFFSET = -40  # mm - How far down from pickup_z when picking (ADJUST ME!)
+#PLACE_HEIGHT_OFFSET = -40  # mm - How far down from bin_z when placing (ADJUST ME!)
+
+# Home position (safe starting position - robot arm rest position)
+# ADJUST THIS: Safe neutral position where robot waits between operations
+# Gripper is always OPEN at home position
+HOME_POSITION = (200, 0, 90, 0)  # (x, y, z, r) - ADJUST ME!
+
+# Movement parameters
+MOVE_SPEED = 200  # mm/s
+MOVE_ACCELERATION = 40  # mm/s²
+
+# Safety boundaries for Dobot Magician (in millimeters)
+# These limits prevent the robot from reaching dangerous positions
+# Dobot Magician workspace limits (based on official specifications):
+# X-axis: Starts at 0 (base) and extends forward (positive only)
+# Y-axis: Can be negative (left) or positive (right) from base center
+# Z-axis: Can be negative (below base level) or positive (above base level)
+SAFE_X_MIN = 0     # mm - Minimum X (at base, cannot go negative)
+SAFE_X_MAX = 300   # mm - Maximum X (forward from base)
+SAFE_Y_MIN = -300  # mm - Minimum Y (left from base center)
+SAFE_Y_MAX = 200   # mm - Maximum Y (right from base center)
+SAFE_Z_MIN = -50   # mm - Minimum Z (lowest safe height, below base)
+SAFE_Z_MAX = 200   # mm - Maximum Z (highest safe height, above base)
+SAFE_R_MIN = -180  # degrees - Minimum rotation
+SAFE_R_MAX = 180   # degrees - Maximum rotation
+
 # Mapping function: converts ML prediction classes to robot bin classes
-# Only handles: paper, plastic, glass, biological
-# All other classes → "trash"
 def map_class_to_bin(ml_prediction: str) -> str:
     """
     Map ML prediction class to robot bin class.
@@ -75,41 +124,6 @@ def map_class_to_bin(ml_prediction: str) -> str:
     else:
         return "trash"
 
-# ============================================================================
-# COORDINATE CALIBRATION SECTION
-# ============================================================================
-# Adjust these coordinates to match your physical setup.
-# All coordinates are in millimeters (mm).
-# Format: (x, y, z, r) where:
-#   - x: Forward/backward from robot base (mm)
-#   - y: Left/right from robot base (mm)
-#   - z: Up/down height (mm, negative = lower, positive = higher)
-#   - r: Rotation angle (degrees)
-#
-# See COORDINATE_ADJUSTMENT_GUIDE.md for detailed explanation.
-# ============================================================================
-
-# Pickup position (where items are placed for sorting)
-# ADJUST THIS: Position where you place items for the robot to pick up
-# Gripper will be OPEN when robot arrives here, then CLOSES to pick object
-PICKUP_POSITION = (250, -135, 80, 0)  # (x, y, z, r) - ADJUST ME!
-PICK_HEIGHT_OFFSET = -20
-PLACE_HEIGHT_OFFSET = -10
-# Home position (safe starting position - robot arm rest position)
-# ADJUST THIS: Safe neutral position where robot waits between operations
-# Gripper is always OPEN at home position
-HOME_POSITION = (200, 0, 90, 0)  # (x, y, z, r) - ADJUST ME!
-
-# Movement parameters
-MOVE_SPEED = 200  # mm/s
-MOVE_ACCELERATION = 40  # mm/s²
-
-# Height offsets - ADJUST THESE to fine-tune pick/place heights
-# How far BELOW the base position the robot goes when picking/placing
-# More negative = lower (robot goes down further)
-# Less negative = higher (robot doesn't go as low)
-#PICK_HEIGHT_OFFSET = -40  # mm - How far down from pickup_z when picking (ADJUST ME!)
-#PLACE_HEIGHT_OFFSET = -40  # mm - How far down from bin_z when placing (ADJUST ME!)
 
 
 class DobotService:
@@ -218,21 +232,50 @@ class DobotService:
             dType.SetPTPJointParams(self._api, 200, 200, 200, 200, 200, 200, 200, 200, isQueued=1)
             dType.SetPTPCommonParams(self._api, 100, 100, isQueued=1)
             
+            # Set custom home position parameters IMMEDIATELY (isQueued=0) before calling SetHOMECmd
+            # This ensures SetHOMECmd moves to our custom HOME_POSITION, not the default
+            # CRITICAL: Use isQueued=0 to set parameters synchronously, not queued
+            home_x, home_y, home_z, home_r = HOME_POSITION
+            print(f"Setting custom home position parameters to: ({home_x}, {home_y}, {home_z}, {home_r})")
+            print("  (Using isQueued=0 to set parameters immediately, not queued)")
+            dType.SetHOMEParams(self._api, home_x, home_y, home_z, home_r, isQueued=0)
+            dType.dSleep(500)  # Wait for parameter to be set and confirmed
+            
+            # Verify home parameters were set correctly
+            try:
+                current_home = dType.GetHOMEParams(self._api)
+                print(f"  Verified home params: ({current_home[0]:.1f}, {current_home[1]:.1f}, {current_home[2]:.1f}, {current_home[3]:.1f})")
+                if abs(current_home[0] - home_x) > 1 or abs(current_home[1] - home_y) > 1 or abs(current_home[2] - home_z) > 1 or abs(current_home[3] - home_r) > 1:
+                    print(f"  WARNING: Home params don't match! Expected ({home_x}, {home_y}, {home_z}, {home_r})")
+            except Exception as e:
+                print(f"  WARNING: Could not verify home params: {e}")
+            
             # Start executing queued commands
             dType.SetQueuedCmdStartExec(self._api)
             dType.dSleep(200)
 
-            # -------------- NEW: REQUIRED FOR MOVEMENT ----------------
-            # Run HOME immediately to activate motors and queue system
-            print("Running initial HOME command...")
+            # -------------- REQUIRED FOR MOVEMENT ----------------
+            # Run HOME to activate motors and queue system
+            # This will now use the custom HOME_POSITION we just set
+            print("Running initial HOME command to custom home position...")
             home_idx = dType.SetHOMECmd(self._api, 0, 1)[0]
 
             # Wait for HOME to finish
-            while True:
-                current = dType.GetQueuedCmdCurrentIndex(self._api)[0]
-                if current >= home_idx:
-                    break
+            max_wait_time = 20.0  # Increased timeout for initial home
+            start_time = time.time()
+            while time.time() - start_time < max_wait_time:
+                try:
+                    current = dType.GetQueuedCmdCurrentIndex(self._api)[0]
+                    if current >= home_idx:
+                        break
+                except Exception:
+                    pass
                 dType.dSleep(100)
+            
+            if time.time() - start_time >= max_wait_time:
+                print(f"  WARNING: HOME command timed out after {max_wait_time}s")
+            else:
+                print(f"  HOME command completed in {time.time() - start_time:.1f}s")
             
             print(f"Dobot connected successfully on port {port}")
             return True
@@ -267,6 +310,39 @@ class DobotService:
         if not self.is_connected():
             raise RuntimeError("Dobot is not connected. Call connect() first.")
     
+    def _validate_coordinates(self, x: float, y: float, z: float, r: float = 0) -> Tuple[bool, str]:
+        """
+        Validate coordinates are within safe boundaries.
+        
+        Args:
+            x: X coordinate (mm)
+            y: Y coordinate (mm)
+            z: Z coordinate (mm)
+            r: Rotation angle (degrees)
+            
+        Returns:
+            Tuple of (is_valid: bool, error_message: str)
+        """
+        errors = []
+        
+        if x < SAFE_X_MIN or x > SAFE_X_MAX:
+            errors.append(f"X coordinate {x:.1f}mm is out of bounds (safe range: {SAFE_X_MIN} to {SAFE_X_MAX}mm)")
+        
+        if y < SAFE_Y_MIN or y > SAFE_Y_MAX:
+            errors.append(f"Y coordinate {y:.1f}mm is out of bounds (safe range: {SAFE_Y_MIN} to {SAFE_Y_MAX}mm)")
+        
+        if z < SAFE_Z_MIN or z > SAFE_Z_MAX:
+            errors.append(f"Z coordinate {z:.1f}mm is out of bounds (safe range: {SAFE_Z_MIN} to {SAFE_Z_MAX}mm)")
+        
+        if r < SAFE_R_MIN or r > SAFE_R_MAX:
+            errors.append(f"Rotation {r:.1f}° is out of bounds (safe range: {SAFE_R_MIN} to {SAFE_R_MAX}°)")
+        
+        if errors:
+            error_msg = "Coordinate validation failed: " + "; ".join(errors)
+            return False, error_msg
+        
+        return True, ""
+    
     def move_to(self, x: float, y: float, z: float, r: float = 0, wait: bool = True) -> bool:
         """
         Move robot to specified position using PTP movement.
@@ -285,8 +361,15 @@ class DobotService:
             print(f"ERROR: Dobot is not connected (attempted move to: x={x}, y={y}, z={z}, r={r})")
             return False
         
+        # Validate coordinates before movement
+        is_valid, error_msg = self._validate_coordinates(x, y, z, r)
+        if not is_valid:
+            print(f"ERROR: {error_msg}")
+            print(f"  Movement blocked to prevent robot from reaching unsafe position.")
+            return False
+        
         try:
-            print(f"  → Moving to: ({x:.1f}, {y:.1f}, {z:.1f}, {r:.1f})")
+            print(f" -> Moving to: ({x:.1f}, {y:.1f}, {z:.1f}, {r:.1f})")
             
             # Use PTPMOVJXYZMode for joint movement (faster)
             # Set isQueued=1 to queue the command
@@ -321,7 +404,7 @@ class DobotService:
                 
                 # Additional small delay for stability
                 dType.dSleep(300)
-                print(f"  ✓ Movement completed")
+                print(f"  Movement completed")
             
             return True
         except Exception as e:
@@ -355,21 +438,52 @@ class DobotService:
             # SetEndEffectorGripper(api, enableCtrl, on, isQueued)
             # enableCtrl=1: enable control, on=1: close gripper (grip object)
             queued_index = dType.SetEndEffectorGripper(self._api, 1, 1, isQueued=1)[0]
+            print(f"  Gripper close command queued at index: {queued_index}")
             
-            # Wait for command to execute
-            max_wait = 2.0
+            # Wait for command to execute with longer timeout
+            max_wait = 5.0  # Increased from 2.0 to 5.0 seconds
             start_time = time.time()
+            command_executed = False
+            
             while time.time() - start_time < max_wait:
                 try:
                     current_index = dType.GetQueuedCmdCurrentIndex(self._api)[0]
                     if current_index >= queued_index:
+                        command_executed = True
+                        print(f"  Gripper command executed (current_index={current_index} >= queued_index={queued_index})")
                         break
-                except Exception:
+                except Exception as e:
+                    print(f"  Warning: Error checking command status: {e}")
                     pass
-                dType.dSleep(50)
+                dType.dSleep(100)  # Increased from 50ms to 100ms for more reliable checking
             
-            dType.dSleep(500)  # Additional wait for gripper to close completely
-            print("Gripper closed (object gripped)")
+            if not command_executed:
+                print(f"  ERROR: Gripper close command did not execute within {max_wait}s timeout")
+                print(f"  Current queue index may not have reached {queued_index}")
+                # Try to verify gripper state
+                try:
+                    gripper_state = dType.GetEndEffectorGripper(self._api)
+                    print(f"  Current gripper state: {gripper_state}")
+                except Exception as e:
+                    print(f"  Could not read gripper state: {e}")
+                return False
+            
+            # Additional wait for gripper to close completely (mechanical delay)
+            dType.dSleep(800)  # Increased from 500ms to 800ms for more reliable closing
+            
+            # Verify gripper actually closed
+            try:
+                gripper_state = dType.GetEndEffectorGripper(self._api)
+                # gripper_state[0] is the on/off state (1 = closed, 0 = open)
+                if gripper_state[0] == 1:
+                    print("  ✓ Gripper confirmed closed (object gripped)")
+                else:
+                    print(f"  WARNING: Gripper state indicates it may not be fully closed (state={gripper_state})")
+                    print(f"  Continuing anyway, but object may not be gripped properly")
+            except Exception as e:
+                print(f"  WARNING: Could not verify gripper state: {e}")
+                print(f"  Assuming gripper closed based on command execution")
+            
             return True
         except Exception as e:
             print(f"Error picking object: {e}")
@@ -425,7 +539,11 @@ class DobotService:
     
     def home(self) -> bool:
         """
-        Move robot to home position using SetHOMECmd.
+        Move robot to custom home position (HOME_POSITION).
+        
+        This method ensures the robot moves to the configured HOME_POSITION,
+        not the built-in default home position. It first sets the home parameters
+        to match HOME_POSITION, then executes the home command.
         
         Returns:
             True if successful, False otherwise
@@ -435,7 +553,41 @@ class DobotService:
             return False
         
         try:
-            # Use SetHOMECmd from SDK
+            # Get custom home position coordinates
+            home_x, home_y, home_z, home_r = HOME_POSITION
+            
+            # Validate home position coordinates
+            is_valid, error_msg = self._validate_coordinates(home_x, home_y, home_z, home_r)
+            if not is_valid:
+                print(f"ERROR: Home position is out of bounds: {error_msg}")
+                print(f"  Please adjust HOME_POSITION in dobot_service.py to be within safe limits.")
+                return False
+            
+            # Update home parameters IMMEDIATELY (isQueued=0) to ensure they match our custom HOME_POSITION
+            # CRITICAL: Use isQueued=0 to set parameters synchronously, not queued
+            # This is important in case the robot's home params were changed elsewhere
+            print(f"Setting home parameters to custom HOME_POSITION: ({home_x}, {home_y}, {home_z}, {home_r})")
+            print("  (Using isQueued=0 to set parameters immediately, not queued)")
+            dType.SetHOMEParams(self._api, home_x, home_y, home_z, home_r, isQueued=0)
+            dType.dSleep(500)  # Wait for parameter to be set and confirmed
+            
+            # Verify home parameters were set correctly
+            try:
+                current_home = dType.GetHOMEParams(self._api)
+                print(f"  Verified home params: ({current_home[0]:.1f}, {current_home[1]:.1f}, {current_home[2]:.1f}, {current_home[3]:.1f})")
+                if abs(current_home[0] - home_x) > 1 or abs(current_home[1] - home_y) > 1 or abs(current_home[2] - home_z) > 1 or abs(current_home[3] - home_r) > 1:
+                    print(f"  WARNING: Home params don't match! Expected ({home_x}, {home_y}, {home_z}, {home_r})")
+                    print(f"  Falling back to direct movement instead of SetHOMECmd")
+                    # Fallback to direct movement if params don't match
+                    return self.move_to(home_x, home_y, home_z, home_r, wait=True)
+            except Exception as e:
+                print(f"  WARNING: Could not verify home params: {e}")
+                print(f"  Falling back to direct movement instead of SetHOMECmd")
+                # Fallback to direct movement if verification fails
+                return self.move_to(home_x, home_y, home_z, home_r, wait=True)
+            
+            # Now execute home command - this will move to our custom HOME_POSITION
+            print(f"Moving to custom home position using SetHOMECmd: ({home_x}, {home_y}, {home_z}, {home_r})")
             queued_indices = dType.SetHOMECmd(self._api, temp=0, isQueued=1)
             queued_index = queued_indices[0]  # Get first index
             
@@ -453,15 +605,17 @@ class DobotService:
                 dType.dSleep(100)
             
             dType.dSleep(1000)  # Additional wait for stability
+            print("Successfully moved to custom home position")
             return True
         except Exception as e:
-            print(f"Error moving to home: {e}")
-            # Fallback to manual home position
+            print(f"Error moving to home using SetHOMECmd: {e}")
+            # Fallback: Use direct movement to HOME_POSITION
+            print("Attempting fallback: direct movement to HOME_POSITION...")
             try:
                 x, y, z, r = HOME_POSITION
                 return self.move_to(x, y, z, r, wait=True)
             except Exception as e2:
-                print(f"Error in fallback home: {e2}")
+                print(f"Error in fallback home movement: {e2}")
                 return False
     
     def sort_item(self, class_name: str) -> Tuple[bool, str]:
@@ -520,10 +674,13 @@ class DobotService:
             bin_x, bin_y, bin_z, bin_r = bin_pos
             print(f"Target bin position: ({bin_x}, {bin_y}, {bin_z}, {bin_r})")
             
-            # Validate coordinates are within reasonable range
-            if abs(bin_x) > 300 or abs(bin_y) > 300 or bin_z > 200 or bin_z < -200:
-                print(f"WARNING: Bin coordinates seem unusual (x={bin_x}, y={bin_y}, z={bin_z}, r={bin_r})")
-                print(f"  Please verify these coordinates are correct for your setup.")
+            # Validate bin coordinates are within safe boundaries
+            is_valid, error_msg = self._validate_coordinates(bin_x, bin_y, bin_z, bin_r)
+            if not is_valid:
+                error_msg_full = f"Bin '{bin_class}' has invalid coordinates: {error_msg}"
+                print(f"ERROR: {error_msg_full}")
+                print(f"  Please adjust BIN_POSITIONS['{bin_class}'] in dobot_service.py to be within safe limits.")
+                return False, error_msg_full
             
             # ============================================================
             # PICKUP PHASE - Gripper starts OPEN, then CLOSES
@@ -532,14 +689,39 @@ class DobotService:
             # Step 1: Move above pickup position
             # GRIPPER STATE: OPEN ⬜
             pickup_x, pickup_y, pickup_z, pickup_r = PICKUP_POSITION
-            print(f"\nStep 1/9: Moving above pickup position ({pickup_x}, {pickup_y}, {pickup_z + 20}, {pickup_r}) [Gripper: OPEN]")
-            if not self.move_to(pickup_x, pickup_y, pickup_z + 20, pickup_r, wait=True):
+            
+            # Validate pickup position coordinates
+            is_valid, error_msg = self._validate_coordinates(pickup_x, pickup_y, pickup_z, pickup_r)
+            if not is_valid:
+                error_msg_full = f"Pickup position has invalid coordinates: {error_msg}"
+                print(f"ERROR: {error_msg_full}")
+                print(f"  Please adjust PICKUP_POSITION in dobot_service.py to be within safe limits.")
+                return False, error_msg_full
+            
+            # Validate pickup position with height offset
+            pickup_z_above = pickup_z + 20
+            is_valid_above, error_msg_above = self._validate_coordinates(pickup_x, pickup_y, pickup_z_above, pickup_r)
+            if not is_valid_above:
+                error_msg_full = f"Pickup position (above) has invalid coordinates: {error_msg_above}"
+                print(f"ERROR: {error_msg_full}")
+                return False, error_msg_full
+            
+            print(f"\nStep 1/9: Moving above pickup position ({pickup_x}, {pickup_y}, {pickup_z_above}, {pickup_r}) [Gripper: OPEN]")
+            if not self.move_to(pickup_x, pickup_y, pickup_z_above, pickup_r, wait=True):
                 return False, "Failed to move to pickup position"
             
             # Step 2: Descend to pickup position (at object level)
             # GRIPPER STATE: OPEN ⬜ (about to close)
-            print(f"Step 2/9: Descending to pickup position ({pickup_x}, {pickup_y}, {pickup_z + PICK_HEIGHT_OFFSET}, {pickup_r}) [Gripper: OPEN]")
-            if not self.move_to(pickup_x, pickup_y, pickup_z + PICK_HEIGHT_OFFSET, pickup_r, wait=True):
+            pickup_z_pick = pickup_z + PICK_HEIGHT_OFFSET
+            # Validate pickup position with pick height offset
+            is_valid_pick, error_msg_pick = self._validate_coordinates(pickup_x, pickup_y, pickup_z_pick, pickup_r)
+            if not is_valid_pick:
+                error_msg_full = f"Pickup position (pick height) has invalid coordinates: {error_msg_pick}"
+                print(f"ERROR: {error_msg_full}")
+                return False, error_msg_full
+            
+            print(f"Step 2/9: Descending to pickup position ({pickup_x}, {pickup_y}, {pickup_z_pick}, {pickup_r}) [Gripper: OPEN]")
+            if not self.move_to(pickup_x, pickup_y, pickup_z_pick, pickup_r, wait=True):
                 return False, "Failed to descend to pickup position"
             
             # Step 3: Pick up object - GRIPPER CLOSES HERE!
@@ -567,8 +749,16 @@ class DobotService:
             
             # Step 6: Descend to bin position
             # GRIPPER STATE: CLOSED ⬛ (still holding object, about to release)
-            print(f"Step 6/9: Descending to bin position ({bin_x}, {bin_y}, {bin_z + PLACE_HEIGHT_OFFSET}, {bin_r}) [Gripper: CLOSED]")
-            if not self.move_to(bin_x, bin_y, bin_z + PLACE_HEIGHT_OFFSET, bin_r, wait=True):
+            bin_z_place = bin_z + PLACE_HEIGHT_OFFSET
+            # Validate bin position with place height offset
+            is_valid_place, error_msg_place = self._validate_coordinates(bin_x, bin_y, bin_z_place, bin_r)
+            if not is_valid_place:
+                error_msg_full = f"Bin position (place height) has invalid coordinates: {error_msg_place}"
+                print(f"ERROR: {error_msg_full}")
+                return False, error_msg_full
+            
+            print(f"Step 6/9: Descending to bin position ({bin_x}, {bin_y}, {bin_z_place}, {bin_r}) [Gripper: CLOSED]")
+            if not self.move_to(bin_x, bin_y, bin_z_place, bin_r, wait=True):
                 return False, "Failed to descend to bin position"
             
             # ============================================================

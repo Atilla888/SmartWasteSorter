@@ -76,7 +76,7 @@ def validate_environment():
         if device not in ["cpu", "cuda"]:
             print(f"WARNING: YOLO_DEVICE should be 'cpu' or 'cuda', got '{device}'. Using 'cpu'.")
     
-    print("✓ Environment variable validation completed.")
+    print("Environment variable validation completed.")
 
 
 # Validate environment on import

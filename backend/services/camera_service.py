@@ -55,6 +55,9 @@ def _load_model() -> YOLO:
     """
     Load the YOLO classification model globally (lazy loading).
     Model is loaded once and reused for all inference requests.
+    
+    Loads from: backend/models/best.pt (or YOLO_MODEL_PATH env var)
+    This is YOUR trained model, NOT YOLO's built-in model.
     """
     global _model
     if _model is None:
@@ -62,7 +65,10 @@ def _load_model() -> YOLO:
             raise FileNotFoundError(
                 f"Model not found at {MODEL_PATH}. Please ensure the model is trained first."
             )
+        print(f"Loading YOLO model from: {MODEL_PATH}")
+        print(f"  (This is your trained model, not YOLO's built-in model)")
         _model = YOLO(str(MODEL_PATH), task="classify")
+        print(f"Model loaded successfully!")
     return _model
 
 
@@ -81,6 +87,11 @@ def sanitize_filename(filename: str) -> str:
     Returns:
         Sanitized filename safe for filesystem
     """
+
+    # Ensure filename is not empty
+    if not filename:
+        filename = "frame"
+
     # Remove any path components (directory traversal protection)
     filename = os.path.basename(filename)
     
@@ -90,10 +101,6 @@ def sanitize_filename(filename: str) -> str:
     
     # Remove leading/trailing dots and spaces
     filename = filename.strip('. ')
-    
-    # Ensure filename is not empty
-    if not filename:
-        filename = "frame"
     
     # Limit length to prevent filesystem issues
     if len(filename) > 255:
