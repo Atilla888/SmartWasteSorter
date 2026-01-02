@@ -26,13 +26,13 @@ except ImportError as e:
     print("Please ensure DobotDllType.py and DobotDll.dll are in backend/dobot_magician/")
 
 # Bin positions mapping (x, y, z, r) in millimeters
-# Only 5 bins: paper, plastic, glass, biological, and trash (for all other classes)
+# Only 5 bins: paper, plastic, cardboard, biological, and trash (for all other classes)
 # ADJUST THESE: Set the exact coordinates where each bin is located
 # Gripper will be CLOSED when robot arrives at bin, then OPENS to release object
 BIN_POSITIONS = {
     "paper": (200, -15, 60, 0),  # z-40          # Paper bin - ADJUST ME!
     "plastic": (200, -100, 60, 0),            # Plastic bin - ADJUST ME!
-    "glass": (200, -70, 60, 0),           # Glass bin - ADJUST ME!
+    "cardboard": (200, -70, 60, 0),           # Cardboard bin - ADJUST ME!
     "biological": (200, 60, 60, 0),       # Biological waste bin - ADJUST ME!
     "trash": (200, 100, 60, 0),              # General trash bin - ADJUST ME!
 }
@@ -96,7 +96,7 @@ def map_class_to_bin(ml_prediction: str) -> str:
     Only specific classes are handled:
     - paper → paper
     - plastic → plastic
-    - brown-glass, green-glass, white-glass → glass
+    - cardboard → cardboard
     - biological → biological
     - All others → trash
     
@@ -104,7 +104,7 @@ def map_class_to_bin(ml_prediction: str) -> str:
         ml_prediction: ML model prediction class name
         
     Returns:
-        Robot bin class name: "paper", "plastic", "glass", "biological", or "trash"
+        Robot bin class name: "paper", "plastic", "cardboard", "biological", or "trash"
     """
     ml_prediction_lower = ml_prediction.lower().strip()
     
@@ -113,12 +113,10 @@ def map_class_to_bin(ml_prediction: str) -> str:
         return "paper"
     elif ml_prediction_lower == "plastic":
         return "plastic"
+    elif ml_prediction_lower == "cardboard":
+        return "cardboard"
     elif ml_prediction_lower == "biological":
         return "biological"
-    
-    # Glass variations → "glass"
-    elif ml_prediction_lower in ["brown-glass", "green-glass", "white-glass", "glass"]:
-        return "glass"
     
     # All other classes → "trash"
     else:
@@ -623,8 +621,8 @@ class DobotService:
         Complete sorting sequence: pick item, move to bin, place, return home.
         
         Args:
-            class_name: Waste class name from ML prediction (e.g., "plastic", "brown-glass", "metal")
-                       Will be mapped to bin classes: paper, plastic, glass, biological, or trash
+            class_name: Waste class name from ML prediction (e.g., "plastic", "cardboard", "metal")
+                       Will be mapped to bin classes: paper, plastic, cardboard, biological, or trash
             
         Returns:
             Tuple of (success: bool, message: str)
@@ -657,7 +655,7 @@ class DobotService:
             for bin_name, pos in BIN_POSITIONS.items():
                 print(f"    {bin_name}: {pos}")
             
-            # Map ML prediction to bin class (paper, plastic, glass, biological, or trash)
+            # Map ML prediction to bin class (paper, plastic, cardboard, biological, or trash)
             bin_class = map_class_to_bin(class_name)
             original_class = class_name  # Keep original for message
             
@@ -793,7 +791,7 @@ class DobotService:
                 # Direct match (no mapping needed)
                 message = f"Sorted to {bin_class.upper()} bin"
             else:
-                # Mapped to different bin (e.g., "brown-glass" → "glass", or "metal" → "trash")
+                # Mapped to different bin (e.g., "metal" → "trash")
                 message = f"Sorted to {bin_class.upper()} bin (predicted: {original_class})"
             
             return True, message
