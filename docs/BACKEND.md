@@ -110,9 +110,9 @@ Processes uploaded images and runs ML inference.
 7. Returns results
 
 **Model Configuration:**
-- **Default Path**: `backend/models/best.pt`
-- **Environment Override**: Set `YOLO_MODEL_PATH` to override
-- **Device**: `cpu` by default, set `YOLO_DEVICE=cuda` for GPU
+- Default Path: `backend/models/best.pt`
+- Environment Override: Set `YOLO_MODEL_PATH` to override
+- Device: `cpu` by default, set `YOLO_DEVICE=cuda` for GPU
 
 **Model Loading:**
 - Model is loaded lazily (on first inference)
@@ -143,7 +143,7 @@ Controls the Dobot Magician robot arm to sort items.
 **Class Mapping:**
 - `paper` → paper bin
 - `plastic` → plastic bin
-- `brown-glass`, `green-glass`, `white-glass` → glass bin
+- `cardboard` → cardboard bin
 - `biological` → biological bin
 - All others → trash bin
 
@@ -160,7 +160,7 @@ All coordinates are defined at the top of `dobot_service.py`:
 - `PICK_HEIGHT_OFFSET`: How far down to pick
 - `PLACE_HEIGHT_OFFSET`: How far down to place
 
-See `services/COORDINATE_ADJUSTMENT_GUIDE.md` for detailed calibration instructions.
+See `docs/COORDINATE_ADJUSTMENT_GUIDE.md` for detailed calibration instructions.
 
 ---
 
@@ -212,36 +212,25 @@ pip install -r requirements.txt
 
 ### 3. Dobot SDK Setup
 
-**Important**: The official Dobot Magician SDK requires modifications to work correctly with this project. The SDK files are **not included** in this repository.
+The Dobot Magician SDK files are included in this repository at `backend/dobot_magician/`. The original SDK from Dobot has been modified to work correctly with this project.
 
-**Step 1: Download Official SDK**
-1. Download the official Dobot Magician Python SDK from the Dobot website
-2. Extract the SDK files to a temporary location
+**SDK Modifications:**
 
-**Step 2: Copy SDK Files**
-Copy the following files from the official SDK to `backend/dobot_magician/`:
-- `DobotDll.dll` (Windows 64-bit)
-- `DobotDllType.py`
-- `DobotControl.py`
-- Supporting DLLs: `msvcp120.dll`, `msvcr120.dll`, `Qt5Core.dll`, `Qt5Network.dll`, `Qt5SerialPort.dll`
+The original SDK's load() function used relative paths that failed when the script was run from different directories. The included version has been modified with the following changes:
 
-**Step 3: Modify `DobotDllType.py`**
+**Original SDK issues:**
+- Used "./DobotDll.dll" (relative path), which only worked when running from the SDK directory
+- Used CDLL with RTLD_GLOBAL flag, which is Linux/Mac-specific and caused issues on Windows
+- Could not load the DLL from any working directory
 
-The official SDK's `load()` function uses relative paths that fail when the script is run from different directories. You must modify `backend/dobot_magician/DobotDllType.py`:
+**Modifications made:**
 
-**Why changes are needed:**
-- The original SDK uses `"./DobotDll.dll"` (relative path), which only works when running from the SDK directory
-- The original uses `CDLL` with `RTLD_GLOBAL` flag, which is Linux/Mac-specific and causes issues on Windows
-- The project needs to load the DLL from any working directory
-
-**Required modifications:**
-
-1. **Add import at the top** (after line 3, with other imports):
+1. Added import at the top:
    ```python
    from pathlib import Path
    ```
 
-2. **Replace the `load()` function** (around line 587-595) with:
+2. Modified the load() function to use absolute paths:
    ```python
    def load():
        dll_path = str(Path(__file__).resolve().parent / "DobotDll.dll")
@@ -258,28 +247,19 @@ The official SDK's `load()` function uses relative paths that fail when the scri
            return CDLL("libDobotDll.so")
    ```
 
-**What changed:**
-- **Absolute path resolution**: Uses `Path(__file__).resolve().parent` to find the DLL relative to the script's location, regardless of working directory
-- **Windows-specific loading**: Uses `WinDLL` instead of `CDLL` on Windows (more appropriate for Windows DLLs)
-- **Removed RTLD_GLOBAL**: This flag is Linux/Mac-specific and not needed on Windows
-- **macOS path fix**: Also uses absolute path for macOS dylib
+**What these changes accomplish:**
+- Absolute path resolution: Uses Path(__file__).resolve().parent to find the DLL relative to the script's location, regardless of working directory
+- Windows-specific loading: Uses WinDLL instead of CDLL on Windows (more appropriate for Windows DLLs)
+- Removed RTLD_GLOBAL: This flag is Linux/Mac-specific and not needed on Windows
+- macOS path fix: Also uses absolute path for macOS dylib
 
-**Verification:**
-After making these changes, the SDK should load correctly when running the backend from any directory.
-
+The SDK files in `backend/dobot_magician/` are ready to use and do not require any additional setup.
 
 **Note:** Dobot SDK requires Windows OS.
 
 ### 4. ML Model
 
-Place your trained YOLOv8 model at:
-```
-backend/models/best.pt
-```
-
-Or set `YOLO_MODEL_PATH` environment variable.
-
-Or use existing model located at backend/models/best.pt
+The trained YOLOv8 model is included in the repository at `backend/models/best.pt`. The model is ready to use. The model path can be overridden by setting the `YOLO_MODEL_PATH` environment variable if needed.
 
 ### 5. Run Backend
 
@@ -306,20 +286,21 @@ backend/
 │   ├── camera_service.py        # ML inference & image processing
 │   ├── snapshot_service.py      # DroidCam frame extraction
 │   ├── dobot_service.py         # Robot control
-│   └── COORDINATE_ADJUSTMENT_GUIDE.md  # Calibration guide
 │
 ├── utils/
 │   └── image_utils.py           # Image conversion utilities
 │
 ├── models/
-│   └── best.pt                  # YOLOv8 model (place here)
+│   ├── best.pt                  # YOLOv8 model
+│   └── best.onnx                # YOLOv8 model ONNX format
 │
 ├── frames/                      # Saved captured frames (auto-created)
 │
-└── dobot_magician/              # Dobot SDK files (place here)
+└── dobot_magician/              # Dobot SDK files (modified version included)
     ├── DobotDll.dll
-    ├── DobotDllType.py
-    └── ...                # reamining SDK files
+    ├── DobotDllType.py          # Modified to use absolute paths
+    ├── DobotControl.py
+    └── ...                      # remaining SDK files
 ```
 
 ---
@@ -400,7 +381,7 @@ Captured frames are automatically saved to `backend/frames/` with timestamp file
 
 ## Additional Resources
 
-- **Coordinate Calibration**: See `services/COORDINATE_ADJUSTMENT_GUIDE.md`
+- **Coordinate Calibration**: See `docs/COORDINATE_ADJUSTMENT_GUIDE.md`
 - **Dobot SDK**: See `dobot_magician/README.md`
 - **Main Documentation**: See root `README.md`
 

@@ -2,7 +2,7 @@
 
 A full-stack robotic application that uses computer vision and machine learning to automatically sort waste items using a Dobot Magician robot arm. The system connects to a DroidCam video stream, performs real-time waste classification, and controls the robot arm to sort items into appropriate bins.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [System Architecture](#system-architecture)
@@ -18,10 +18,10 @@ A full-stack robotic application that uses computer vision and machine learning 
 
 The Smart Waste Sorter is an automated waste sorting system that combines:
 
-- **Computer Vision**: Real-time camera feed from DroidCam (phone camera)
-- **Machine Learning**: YOLOv8 classification model for waste type detection
-- **Robotics**: Dobot Magician robotic arm for automated sorting
-- **Full-Stack Web Application**: Next.js frontend with FastAPI backend
+- Computer Vision: Real-time camera feed from DroidCam (phone camera)
+- Machine Learning: YOLOv8 classification model for waste type detection
+- Robotics: Dobot Magician robotic arm for automated sorting
+- Full-Stack Web Application: Next.js frontend with FastAPI backend
 
 ### What It Does
 
@@ -73,21 +73,18 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 - Results display
 
 **Backend (FastAPI)**
-- **Snapshot Service**: Extracts frames from DroidCam MJPEG stream
-- **Camera Service**: Processes images, runs ML inference
-- **Dobot Service**: Controls robot arm movements and sorting
+- Snapshot Service: Extracts frames from DroidCam MJPEG stream
+- Camera Service: Processes images, runs ML inference
+- Dobot Service: Controls robot arm movements and sorting
 
 **External Systems**
-- **DroidCam**: Phone camera streaming via WiFi (MJPEG)
-- **YOLOv8 Model**: Pre-trained classification model
-- **Dobot Magician**: Robotic arm with gripper end effector
+- DroidCam: Phone camera streaming via WiFi (MJPEG)
+- YOLOv8 Model: Pre-trained classification model
+- Dobot Magician: Robotic arm with gripper end effector
 
 ---
 
 ## Application Workflow
-
-### End-to-End Pipeline
-
 
 ### Detailed Step-by-Step
 
@@ -95,11 +92,11 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 1. User clicks "Capture & Send" button
 2. Frontend validates camera is connected and IP address is provided
 3. Frontend shows status: "Pausing preview..."
-4. Frontend pauses MJPEG preview stream (sets `previewPaused = true`)
+4. Frontend pauses MJPEG preview stream (sets previewPaused = true)
 5. 250ms delay to allow DroidCam to free the connection
 6. Frontend shows status: "Capturing frame from camera..."
-7. Frontend calls `/api/snapshot?ip={ip}` endpoint
-8. Backend connects to DroidCam MJPEG stream (`http://{ip}:4747/video`)
+7. Frontend calls /api/snapshot?ip={ip} endpoint
+8. Backend connects to DroidCam MJPEG stream (http://{ip}:4747/video)
 9. Backend extracts first JPEG frame (finds SOI/EOI markers)
 10. Backend returns JPEG blob with enhanced error handling:
     - Invalid IP: Clear error message with format example
@@ -111,9 +108,9 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 1. Frontend shows status: "Uploading image to server..."
 2. Frontend creates FormData with captured image blob
 3. Frontend shows status: "Processing image..."
-4. POST request to `/api/capture` endpoint
-5. **Backend validation steps:**
-   - Validates file size (default max: 10MB, configurable via `MAX_FILE_SIZE` env var)
+4. POST request to /api/capture endpoint
+5. Backend validation steps:
+   - Validates file size (default max: 10MB, configurable via MAX_FILE_SIZE env var)
    - Validates file is not empty
    - Returns clear error if file too large or empty
 6. Backend decodes image (PIL Image, RGB format) with error handling:
@@ -122,7 +119,7 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
    - Removes directory traversal attempts
    - Removes invalid filesystem characters
    - Limits filename length to 255 characters
-8. Image saved to `backend/frames/` with sanitized timestamp filename
+8. Image saved to backend/frames/ with sanitized timestamp filename
 9. Frontend shows status: "Running ML inference..."
 10. YOLOv8 model loaded (cached after first load, lazy loading)
 11. Model inference runs on image with enhanced error handling:
@@ -131,7 +128,7 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 12. Top-1 prediction and confidence extracted
 
 **Phase 3: Robot Sorting**
-1. Prediction class name mapped to bin position (paper, plastic, glass, biological, trash)
+1. Prediction class name mapped to bin position (paper, plastic, cardboard, biological, trash)
 2. Dobot service auto-connects if needed
 3. Robot executes sorting sequence:
    - Move above pickup position
@@ -160,37 +157,37 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
    - Image format errors: Suggests valid formats
    - Model errors: Suggests checking model configuration
    - Disk errors: Suggests checking space and permissions
-4. Preview stream resumes automatically (`previewPaused = false`)
+4. Preview stream resumes automatically (previewPaused = false)
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-- **Next.js 16.3** (React framework)
-- **TypeScript**
-- **Tailwind CSS**
-- **shadcn/ui** components
+- Next.js 16.3 (React framework)
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components
 
 ### Backend
-- **FastAPI** (Python web framework)
-- **Uvicorn** (ASGI server)
-- **Pillow** (Image processing)
-- **Ultralytics YOLOv8** (ML model)
-- **httpx** (Async HTTP client)
+- FastAPI (Python web framework)
+- Uvicorn (ASGI server)
+- Pillow (Image processing)
+- Ultralytics YOLOv8 (ML model)
+- httpx (Async HTTP client)
 
 ### ML/AI
-- **YOLOv8** classification model
-- **PyTorch** (via Ultralytics)
+- YOLOv8 classification model
+- PyTorch (via Ultralytics)
 - 12 waste categories: battery, biological, brown-glass, cardboard, clothes, green-glass, metal, paper, plastic, shoes, trash, white-glass
 
 ### Robotics
-- **Dobot Magician** robotic arm
-- **Dobot SDK** (Windows DLL + Python wrapper)
+- Dobot Magician robotic arm
+- Dobot SDK (Windows DLL + Python wrapper)
 - USB/Serial connection
 
 ### Camera
-- **DroidCam** (phone camera streaming)
+- DroidCam (phone camera streaming)
 - MJPEG stream over WiFi
 
 ---
@@ -199,11 +196,11 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 
 ### Prerequisites
 
-- **Python 3.10+** (64-bit on Windows)
-- **Node.js 18+** and npm
-- **Dobot Magician** robot arm (connected via USB)
-- **DroidCam** app installed on phone
-- **Windows OS** (required for Dobot SDK)
+- Python 3.10+ (64-bit on Windows)
+- Node.js 18+ and npm
+- Dobot Magician robot arm (connected via USB)
+- DroidCam app installed on phone
+- Windows OS (required for Dobot SDK)
 
 ### Installation
 
@@ -230,36 +227,25 @@ pip install -r requirements.txt
 
 #### 3. Dobot SDK Setup
 
-**Important**: The official Dobot Magician SDK requires modifications to work correctly with this project. The SDK files are **not included** in this repository.
+The Dobot Magician SDK files are included in this repository at `backend/dobot_magician/`. The original SDK from Dobot has been modified to work correctly with this project.
 
-**Step 1: Download Official SDK**
-1. Download the official Dobot Magician Python SDK from the Dobot website
-2. Extract the SDK files to a temporary location
+**SDK Modifications:**
 
-**Step 2: Copy SDK Files**
-Copy the following files from the official SDK to `backend/dobot_magician/`:
-- `DobotDll.dll` (Windows 64-bit)
-- `DobotDllType.py`
-- `DobotControl.py`
-- Supporting DLLs: `msvcp120.dll`, `msvcr120.dll`, `Qt5Core.dll`, `Qt5Network.dll`, `Qt5SerialPort.dll`
+The original SDK's load() function used relative paths that failed when the script was run from different directories. The included version has been modified with the following changes:
 
-**Step 3: Modify `DobotDllType.py`**
+**Original SDK issues:**
+- Used "./DobotDll.dll" (relative path), which only worked when running from the SDK directory
+- Used CDLL with RTLD_GLOBAL flag, which is Linux/Mac-specific and caused issues on Windows
+- Could not load the DLL from any working directory
 
-The official SDK's `load()` function uses relative paths that fail when the script is run from different directories. You must modify `backend/dobot_magician/DobotDllType.py`:
+**Modifications made:**
 
-**Why changes are needed:**
-- The original SDK uses `"./DobotDll.dll"` (relative path), which only works when running from the SDK directory
-- The original uses `CDLL` with `RTLD_GLOBAL` flag, which is Linux/Mac-specific and causes issues on Windows
-- The project needs to load the DLL from any working directory
-
-**Required modifications:**
-
-1. **Add import at the top** (after line 3, with other imports):
+1. Added import at the top:
    ```python
    from pathlib import Path
    ```
 
-2. **Replace the `load()` function** (around line 587-595) with:
+2. Modified the load() function to use absolute paths:
    ```python
    def load():
        dll_path = str(Path(__file__).resolve().parent / "DobotDll.dll")
@@ -276,16 +262,17 @@ The official SDK's `load()` function uses relative paths that fail when the scri
            return CDLL("libDobotDll.so")
    ```
 
-**What changed:**
-- **Absolute path resolution**: Uses `Path(__file__).resolve().parent` to find the DLL relative to the script's location, regardless of working directory
-- **Windows-specific loading**: Uses `WinDLL` instead of `CDLL` on Windows (more appropriate for Windows DLLs)
-- **Removed RTLD_GLOBAL**: This flag is Linux/Mac-specific and not needed on Windows
-- **macOS path fix**: Also uses absolute path for macOS dylib
+**What these changes accomplish:**
+- Absolute path resolution: Uses Path(__file__).resolve().parent to find the DLL relative to the script's location, regardless of working directory
+- Windows-specific loading: Uses WinDLL instead of CDLL on Windows (more appropriate for Windows DLLs)
+- Removed RTLD_GLOBAL: This flag is Linux/Mac-specific and not needed on Windows
+- macOS path fix: Also uses absolute path for macOS dylib
 
-**Verification:**
-After making these changes, the SDK should load correctly when running the backend from any directory.
+The SDK files in `backend/dobot_magician/` are ready to use and do not require any additional setup.
 
-#### 3. Frontend Setup
+**Note:** Dobot SDK requires Windows OS.
+
+#### 4. Frontend Setup
 
 ```bash
 # From project root
@@ -293,22 +280,17 @@ cd frontend
 npm install
 ```
 
-**Note:** All Next.js commands should be run from within this directory.
+Note: All Next.js commands should be run from within this directory.
 
-#### 4. ML Model
+#### 5. ML Model
 
-Place your trained YOLOv8 model at:
-```
-backend/models/best.pt
-```
-
-Or use existing model located at backend/models/best.pt
+The trained YOLOv8 model is included in the repository at `backend/models/best.pt`. The model is ready to use and does not require additional setup.
 
 ### Running the Application
 
 #### Start Backend
 
-**Important:** The backend now validates environment variables on startup. Optional variables will show warnings, but the server will start with defaults.
+Important: The backend validates environment variables on startup. Optional variables will show warnings, but the server will start with defaults.
 
 From project root:
 ```bash
@@ -321,10 +303,10 @@ python main.py
 ```
 
 **Environment Variables (Optional):**
-- `YOLO_MODEL_PATH`: Path to YOLO model file (defaults to `backend/models/best.pt`)
-- `YOLO_DEVICE`: Device for inference: `cpu` or `cuda` (defaults to `cpu`)
-- `MAX_FILE_SIZE`: Maximum file size in bytes (defaults to 10MB = 10485760)
-- `FASTAPI_URL`: Backend URL for frontend (defaults to `http://localhost:8000`)
+- YOLO_MODEL_PATH: Path to YOLO model file (defaults to `backend/models/best.pt`)
+- YOLO_DEVICE: Device for inference: `cpu` or `cuda` (defaults to `cpu`)
+- MAX_FILE_SIZE: Maximum file size in bytes (defaults to 10MB = 10485760)
+- FASTAPI_URL: Backend URL for frontend (defaults to `http://localhost:8000`)
 
 The backend will validate these on startup and show warnings if using defaults.
 
@@ -360,6 +342,7 @@ Frontend will be available at: `http://localhost:3000`
 4. Click "Capture & Send"
 5. Watch the robot sort the item
 
+---
 
 ## Project Structure
 
@@ -396,27 +379,25 @@ your-project-directory/
 │   │   ├── camera_service.py      # ML inference & image processing
 │   │   ├── snapshot_service.py    # DroidCam frame extraction
 │   │   ├── dobot_service.py       # Robot control
-│   │   └── COORDINATE_ADJUSTMENT_GUIDE.md  # Calibration guide
 │   │
 │   ├── models/
 │   │   ├── best.onnx              # YOLOv8 model .onnx
-│   │   └── best.pt                # YOLOv8 model .pt (place here)
+│   │   └── best.pt                # YOLOv8 model .pt
 │   │
 │   ├── utils/
 │   │   └── image_utils.py         # Image conversion utilities
 │   │
 │   ├── frames/                    # Saved captured frames
 │   │
-│   ├── dobot_magician/            # Dobot SDK files (place here)
+│   ├── dobot_magician/            # Dobot SDK files (modified version included)
 │   │   ├── DobotDll.dll
-│   │   ├── DobotDllType.py
+│   │   ├── DobotDllType.py        # Modified to use absolute paths
 │   │   ├── DobotControl.py
 │   │   └── ...                    # remaining SDK files
-│   │
-│   └── BACKEND.md                 # Backend-specific documentation
 │
 ├── docs/                          # Additional documentation
-├── training/                      # ML model training data and scripts
+├── training/                      # ML model training scripts
+│   └── inspect_model.py          # Model inspection utility
 └── README.md                      # This file
 ```
 
@@ -426,65 +407,62 @@ your-project-directory/
 
 ### Current Limitations
 
-1. **No Confidence Threshold**: Robot sorts items even with low confidence predictions
-2. **Automatic Sorting**: No manual confirmation before robot action
-3. **Blocking Operations**: Robot movements block API response (synchronous)
-4. **No Error Recovery**: If robot fails mid-sequence, no automatic retry mechanism
-5. **Single Camera Connection**: DroidCam Free only allows one connection at a time (preview must pause for capture)
-6. **Windows Only**: Dobot SDK requires Windows OS
-7. **Coordinate Calibration Required**: Bin positions must be manually calibrated for each physical setup
+1. **No confidence threshold for robot action**  
+   The robot will sort items even when the ML prediction confidence is low.
 
-### Recent Enhancements [29.12.2025]
+2. **Automatic sorting without manual confirmation**  
+   There is no option for the user to approve or decline the predicted class before the robot moves.
 
-The following improvements have been implemented:
 
-1. **File Size Validation**: Images larger than 10MB are rejected with clear error messages
-2. **Environment Variable Validation**: Backend validates configuration on startup with helpful warnings
-3. **Progress Indicators**: Real-time status updates during processing ("Pausing preview...", "Capturing frame...", "Processing image...", "Running ML inference...")
-4. **Enhanced Error Messages**: All errors include context-specific troubleshooting hints and user-friendly descriptions
-5. **Filename Sanitization**: All saved filenames are sanitized to prevent security issues (directory traversal, invalid characters)
-6. **Better Error Handling**: Comprehensive error handling at each processing stage with specific error messages
+3. **Limited error recovery**  
+   If the robot fails mid-sequence, there is no automatic retry logic or structured recovery workflow.
 
-### Technical Constraints
+4. **Single camera / stream limitation**  
+   DroidCam Free only allows one connection to stream at a time, so the preview must pause when capturing a frame.
 
-- **DroidCam Free Limitation**: Only one connection to `/video` stream at a time
-- **USB Connection**: Dobot must be connected via USB (COM port)
-- **No Real-time Streaming**: ML inference runs on-demand, not continuously
+5. **Windows-only robot integration**  
+   The Dobot SDK only supports Windows, so the full system (with robot control) is tied to Windows.
+
+6. **Manual coordinate calibration required**  
+   Bin and pickup positions must be manually calibrated for each physical setup using the calibration guide.
 
 ### Future Improvements
 
-- Add confidence threshold before robot action
-- Implement manual confirmation mode
-- Add error recovery and retry logic
-- Support for multiple camera streams
-- Asynchronous robot control with status updates
-- Real-time prediction streaming
-- Cross-platform Dobot SDK support
+Planned or potential improvements:
+
+- **Manual confirmation / override mode**  
+  Allow the user to see the prediction, adjust it if is incorrectly predicted, and then trigger the robot manually.
+
+- **Better error recovery and logging**  
+  Add structured retry logic, clearer robot error codes, and persistent logs for troubleshooting.
+
+- **Multiple camera / stream support**  
+  Support additional camera sources or multiple streams beyond a single DroidCam connection.
+
+- **Cross-platform robot abstraction**  
+  Introduce an abstraction layer so that other robot arms or cross-platform SDKs can be integrated more easily in the future.
 
 ---
 
 ## Additional Documentation
 
-- **Backend Details**: See `backend/BACKEND.md` for API endpoints, services, and environment variables, robot position setup
-- **Dobot SDK**: See `https://www.dobot-robots.com/service/download-center` for SDK documentation and files
+- Backend Details: See `docs/BACKEND.md` for API endpoints, services, and environment variables
+- Coordinate Calibration: See `docs/COORDINATE_ADJUSTMENT_GUIDE.md` for robot setup instructions
+- Dataset information: See `docs/DATASET_INFO.MD`
+- Dobot SDK: See https://www.dobot-robots.com/service/download-center for SDK documentation and files
 
-**Note:** ML model training instructions are not included in this repository. To train a YOLOv8 classification model, refer to the Ultralytics documentation and organize your dataset in class subfolders.
+The training folder contains scripts for model inspection. For training a YOLOv8 classification model, refer to the Ultralytics documentation and organize your dataset in class subfolders within the training directory.
 
 ## Error Handling & Troubleshooting
 
-The application now includes comprehensive error handling with user-friendly messages:
+The application includes comprehensive error handling with user-friendly messages:
 
-- **File Size Errors**: Clear messages when files exceed 10MB limit, with suggestions to use smaller images
-- **Image Format Errors**: Helpful messages when invalid image formats are uploaded
-- **Camera Connection Errors**: Troubleshooting hints for DroidCam connection issues (check power, IP, network, app status)
-- **ML Model Errors**: Clear messages if model is missing or corrupted
-- **Robot Errors**: Robot operation status included in response even if robot fails (ML prediction still returned)
-- **Network Errors**: Timeout and connection error messages with retry suggestions
-
-All error messages include context-specific troubleshooting tips to help users resolve issues independently.
+- Frame Decode Errors: Clear messages when the extracted frame cannot be decoded as an image (for example, corrupted stream data or an unexpected response instead of a JPEG)
+- Camera Connection Errors: Troubleshooting hints for DroidCam connection issues
+- ML Model Errors: Clear messages if model is missing or corrupted
+- Robot Errors: Robot operation status included in response even if robot fails
+- Network Errors: Timeout and connection error messages with retry suggestions
 
 ---
 
 This project is part of a university course (Applied Robotics).
-
----

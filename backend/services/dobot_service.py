@@ -26,21 +26,21 @@ except ImportError as e:
     print("Please ensure DobotDllType.py and DobotDll.dll are in backend/dobot_magician/")
 
 # Bin positions mapping (x, y, z, r) in millimeters
-# Only 5 bins: paper, plastic, cardboard, biological, and trash (for all other classes)
-# ADJUST THESE: Set the exact coordinates where each bin is located
-# Gripper will be CLOSED when robot arrives at bin, then OPENS to release object
+# Five bins: paper, plastic, cardboard, biological, and trash (for all other classes)
+# Adjust these coordinates to match the physical bin locations
+# Gripper is closed when robot arrives at bin, then opens to release object
 BIN_POSITIONS = {
-    "paper": (200, -15, 60, 0),  # z-40          # Paper bin - ADJUST ME!
-    "plastic": (200, -100, 60, 0),            # Plastic bin - ADJUST ME!
-    "cardboard": (200, -70, 60, 0),           # Cardboard bin - ADJUST ME!
-    "biological": (200, 60, 60, 0),       # Biological waste bin - ADJUST ME!
-    "trash": (200, 100, 60, 0),              # General trash bin - ADJUST ME!
+    "paper": (200, -15, 70, 0),
+    "plastic": (200, -115, 70, 0),
+    "cardboard": (200, -70, 70, 0),
+    "biological": (200, 60, 70, 0),
+    "trash": (200, 100, 70, 0),
 }
 
 # ============================================================================
 # COORDINATE CALIBRATION SECTION
 # ============================================================================
-# Adjust these coordinates to match your physical setup.
+# Adjust these coordinates to match the physical setup.
 # All coordinates are in millimeters (mm).
 # Format: (x, y, z, r) where:
 #   - x: Forward/backward from robot base (mm)
@@ -51,42 +51,36 @@ BIN_POSITIONS = {
 # See COORDINATE_ADJUSTMENT_GUIDE.md for detailed explanation.
 # ============================================================================
 
-# Pickup position (where items are placed for sorting)
-# ADJUST THIS: Position where you place items for the robot to pick up
-# Gripper will be OPEN when robot arrives here, then CLOSES to pick object
-PICKUP_POSITION = (118, -220, 100, 0)  # (x, y, z, r) - ADJUST ME!
-PICK_HEIGHT_OFFSET = -35
-PLACE_HEIGHT_OFFSET = -20
-# Height offsets - ADJUST THESE to fine-tune pick/place heights
-# How far BELOW the base position the robot goes when picking/placing
-# More negative = lower (robot goes down further)
-# Less negative = higher (robot doesn't go as low)
-#PICK_HEIGHT_OFFSET = -40  # mm - How far down from pickup_z when picking (ADJUST ME!)
-#PLACE_HEIGHT_OFFSET = -40  # mm - How far down from bin_z when placing (ADJUST ME!)
+# Pickup position where items are placed for sorting
+# Adjust this to match the location where items are placed for the robot to pick up
+# Gripper is open when robot arrives, then closes to pick object
+PICKUP_POSITION = (118, -220, 100, 0)
+PICK_HEIGHT_OFFSET = -44
+PLACE_HEIGHT_OFFSET = -18
+# Height offsets determine how far below the base position the robot descends
+# More negative values mean the robot goes lower
+# Less negative values mean the robot doesn't descend as far
 
-# Home position (safe starting position - robot arm rest position)
-# ADJUST THIS: Safe neutral position where robot waits between operations
-# Gripper is always OPEN at home position
-HOME_POSITION = (200, 0, 90, 0)  # (x, y, z, r) - ADJUST ME!
+# Home position is the safe resting position where robot waits between operations
+# Adjust this to a safe neutral position for the setup
+# Gripper is always open at home position
+HOME_POSITION = (200, 0, 90, 0)
 
 # Movement parameters
 MOVE_SPEED = 200  # mm/s
 MOVE_ACCELERATION = 40  # mm/s²
 
-# Safety boundaries for Dobot Magician (in millimeters)
+# Safety boundaries for Dobot Magician in millimeters
 # These limits prevent the robot from reaching dangerous positions
-# Dobot Magician workspace limits (based on official specifications):
-# X-axis: Starts at 0 (base) and extends forward (positive only)
-# Y-axis: Can be negative (left) or positive (right) from base center
-# Z-axis: Can be negative (below base level) or positive (above base level)
-SAFE_X_MIN = 0     # mm - Minimum X (at base, cannot go negative)
-SAFE_X_MAX = 300   # mm - Maximum X (forward from base)
-SAFE_Y_MIN = -300  # mm - Minimum Y (left from base center)
-SAFE_Y_MAX = 200   # mm - Maximum Y (right from base center)
-SAFE_Z_MIN = -50   # mm - Minimum Z (lowest safe height, below base)
-SAFE_Z_MAX = 200   # mm - Maximum Z (highest safe height, above base)
-SAFE_R_MIN = -180  # degrees - Minimum rotation
-SAFE_R_MAX = 180   # degrees - Maximum rotation
+# Based on official Dobot Magician workspace specifications
+SAFE_X_MIN = 0     # Minimum X at base, cannot go negative
+SAFE_X_MAX = 300   # Maximum X forward from base
+SAFE_Y_MIN = -300  # Minimum Y left from base center
+SAFE_Y_MAX = 200   # Maximum Y right from base center
+SAFE_Z_MIN = -50   # Minimum Z lowest safe height below base
+SAFE_Z_MAX = 200   # Maximum Z highest safe height above base
+SAFE_R_MIN = -180  # Minimum rotation in degrees
+SAFE_R_MAX = 180   # Maximum rotation in degrees
 
 # Mapping function: converts ML prediction classes to robot bin classes
 def map_class_to_bin(ml_prediction: str) -> str:

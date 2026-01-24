@@ -6,8 +6,7 @@ Garbage Classification Dataset (12 Classes)
 ## Source
 Kaggle: https://www.kaggle.com/datasets/mostafaabla/garbage-classification
 
-This dataset must be downloaded manually due to Kaggle's terms of service.
-It is NOT stored in Git to avoid large repository size and binary pollution.
+This dataset must be downloaded manually due to Kaggle's terms of service. It is not stored in Git to avoid large repository size and binary pollution.
 
 ## Classes
 The dataset includes the following 12 waste categories:
@@ -30,8 +29,7 @@ Place the dataset inside:
 
     training/dataset/
 
-Each class must be in its own subfolder.  
-Example:
+Each class must be in its own subfolder. Example:
 
     training/dataset/plastic/
     training/dataset/metal/

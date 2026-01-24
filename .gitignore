@@ -48,34 +48,24 @@ frontend/next-env.d.ts
 venv/
 backend/venv/
 .vevn/
+training/venv/
 
 # Ignore Python cache
 __pycache__/
 *.pyc
 
 # Ignore training datasets
-training/dataset/
-training/dataset_split/
+# training/dataset/
+# training/dataset_split/
 
 # Ignore YOLO training outputs
-training/model_output/
-
-# Allow ONLY training scripts
-!training/train.py
-!training/README.md
-
-# Backend model (commit this!)
-!backend/models/
-!backend/models/best.pt
-# Allow ONNX exports
-!backend/models/*.onnx
-!backend/dobot_magician/
+# training/model_output/
 
 # Ignore weight checkpoints inside training
-training/**/*.pt
+# training/**/*.pt
 
 # Frames / snapshots
-backend/frames/*.jpg
+# backend/frames/*.jpg
 
 # OS
 .DS_Store
