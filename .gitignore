@@ -55,8 +55,8 @@ __pycache__/
 *.pyc
 
 # Ignore training datasets
-# training/dataset/
-# training/dataset_split/
+training/dataset/
+training/dataset_split/
 
 # Ignore YOLO training outputs
 # training/model_output/
