@@ -6,8 +6,6 @@ Garbage Classification Dataset (12 Classes)
 ## Source
 Kaggle: https://www.kaggle.com/datasets/mostafaabla/garbage-classification
 
-This dataset must be downloaded manually due to Kaggle's terms of service. It is not stored in Git to avoid large repository size and binary pollution.
-
 ## Classes
 The dataset includes the following 12 waste categories:
 
@@ -36,8 +34,3 @@ Each class must be in its own subfolder. Example:
     training/dataset/cardboard/
     ...
 
-## Notes
-- The dataset is intentionally excluded from Git via `.gitignore`
-- The dataset structure is compatible with YOLOv8 classification
-- Image sizes vary; YOLO automatically performs resizing and normalization
-- Used for training the trash classification model to control the Dobot robot arm

@@ -97,7 +97,7 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 6. Frontend shows status: "Capturing frame from camera..."
 7. Frontend calls /api/snapshot?ip={ip} endpoint
 8. Backend connects to DroidCam MJPEG stream (http://{ip}:4747/video)
-9. Backend extracts first JPEG frame (finds SOI/EOI markers)
+9. Backend extracts first JPEG frame
 10. Backend returns JPEG blob with enhanced error handling:
     - Invalid IP: Clear error message with format example
     - Connection errors: Troubleshooting hints (check camera, network, app)
@@ -196,36 +196,40 @@ The Smart Waste Sorter is an automated waste sorting system that combines:
 
 ### Prerequisites
 
-- Python 3.10+ (64-bit on Windows)
-- Node.js 18+ and npm
-- Dobot Magician robot arm (connected via USB)
-- DroidCam app installed on phone
-- Windows OS (required for Dobot SDK)
+- **Python 3.12** — This project targets 3.12. Other versions are not recommended (e.g. 3.14 has httpx/httpcore issues). [python.org](https://www.python.org/downloads/) — 64-bit on Windows.
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/) or `winget install OpenJS.NodeJS.LTS` / `brew install node`.
+
+Robot + camera: Dobot Magician (USB), DroidCam, and **Windows**. On Mac/Linux you can run the app and ML; robot control is Windows-only.
 
 ### Installation
 
-#### 1. Clone and Navigate
+#### 1. Project folder that contains `backend/`, `frontend/`, and `requirements.txt`...
 
 ```bash
-cd <your-project-directory>
+cd <project-folder>
 ```
 
-#### 2. Backend Setup
+#### 2. Backend (venv + deps)
+
+**Windows:**
 
 ```bash
-cd backend
-python -m venv venv
-
-# Windows
+py -3.12 -m venv venv
 venv\Scripts\activate
-
-# Mac/Linux
-source venv/bin/activate
-
 pip install -r requirements.txt
 ```
 
-#### 3. Dobot SDK Setup
+**Mac / Linux:**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### 3. Dobot SDK (Windows only)
+
+**Mac/Linux users:** Robot control requires Windows in this project.
 
 The Dobot Magician SDK files are included in this repository at `backend/dobot_magician/`. The original SDK from Dobot has been modified to work correctly with this project.
 
@@ -270,17 +274,12 @@ The original SDK's load() function used relative paths that failed when the scri
 
 The SDK files in `backend/dobot_magician/` are ready to use and do not require any additional setup.
 
-**Note:** Dobot SDK requires Windows OS.
-
-#### 4. Frontend Setup
+#### 4. Frontend
 
 ```bash
-# From project root
 cd frontend
 npm install
 ```
-
-Note: All Next.js commands should be run from within this directory.
 
 #### 5. ML Model
 
@@ -288,48 +287,45 @@ The trained YOLOv8 model is included in the repository at `backend/models/best.p
 
 ### Running the Application
 
-#### Start Backend
+**Terminal 1 — Backend**
 
-Important: The backend validates environment variables on startup. Optional variables will show warnings, but the server will start with defaults.
+**Windows:**
 
-From project root:
 ```bash
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Or from `backend/` directory:
-```bash
+cd <project-folder>\backend
 python main.py
 ```
 
-**Environment Variables (Optional):**
-- YOLO_MODEL_PATH: Path to YOLO model file (defaults to `backend/models/best.pt`)
-- YOLO_DEVICE: Device for inference: `cpu` or `cuda` (defaults to `cpu`)
-- MAX_FILE_SIZE: Maximum file size in bytes (defaults to 10MB = 10485760)
-- FASTAPI_URL: Backend URL for frontend (defaults to `http://localhost:8000`)
+**Mac / Linux:**
 
-The backend will validate these on startup and show warnings if using defaults.
-
-Backend will be available at: `http://localhost:8000`
-
-#### Start Frontend
-
-From project root:
 ```bash
-cd frontend
+cd <project-folder>/backend
+python3 main.py
+```
+
+**Optional env vars:** `YOLO_MODEL_PATH`, `YOLO_DEVICE` (cpu/cuda), `MAX_FILE_SIZE`, `FASTAPI_URL`. Defaults work.
+
+→ `http://localhost:8000`
+
+**Terminal 2 — Frontend**
+
+```bash
+cd <project-folder>\frontend
 npm run dev
 ```
 
-Or from `frontend/` directory:
+**Mac / Linux:**
+
 ```bash
+cd <project-folder>/frontend
 npm run dev
 ```
 
-Frontend will be available at: `http://localhost:3000`
+→ `http://localhost:3000`
 
 #### Connect DroidCam
 
-1. Start DroidCam app on your phone
+1. Start DroidCam app on the phone
 2. Note the IP address (e.g., `192.168.0.105`)
 3. Ensure phone and computer are on the same WiFi network
 4. In the web interface, enter the IP and click "Connect Camera"
@@ -347,7 +343,7 @@ Frontend will be available at: `http://localhost:3000`
 ## Project Structure
 
 ```
-your-project-directory/
+<project-directory>/
 ├── frontend/                       # Next.js frontend application
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   # API routes (proxies to FastAPI)
@@ -371,9 +367,10 @@ your-project-directory/
 │   ├── next.config.ts             # Next.js configuration
 │   └── tsconfig.json              # TypeScript configuration
 │
+├── requirements.txt                 # Python dependencies (backend + training)
+│
 ├── backend/                        # FastAPI backend
 │   ├── main.py                    # FastAPI app entry point
-│   ├── requirements.txt           # Python dependencies
 │   │
 │   ├── services/
 │   │   ├── camera_service.py      # ML inference & image processing
@@ -407,36 +404,33 @@ your-project-directory/
 
 ### Current Limitations
 
-1. **No confidence threshold for robot action**  
-   The robot will sort items even when the ML prediction confidence is low.
 
-2. **Automatic sorting without manual confirmation**  
+1. **Automatic sorting without manual confirmation**  
    There is no option for the user to approve or decline the predicted class before the robot moves.
 
-
-3. **Limited error recovery**  
+2. **Limited error recovery**  
    If the robot fails mid-sequence, there is no automatic retry logic or structured recovery workflow.
 
-4. **Single camera / stream limitation**  
+3. **Single camera / stream limitation**  
    DroidCam Free only allows one connection to stream at a time, so the preview must pause when capturing a frame.
 
-5. **Windows-only robot integration**  
+4. **Windows-only robot integration**  
    The Dobot SDK only supports Windows, so the full system (with robot control) is tied to Windows.
 
-6. **Manual coordinate calibration required**  
+5. **Manual coordinate calibration required**  
    Bin and pickup positions must be manually calibrated for each physical setup using the calibration guide.
 
 ### Future Improvements
 
 Planned or potential improvements:
 
-- **Manual confirmation / override mode**  
-  Allow the user to see the prediction, adjust it if is incorrectly predicted, and then trigger the robot manually.
+- **Confirmation mode**  
+  Allow the user to accept/decline the prediction before robot moves.
 
 - **Better error recovery and logging**  
   Add structured retry logic, clearer robot error codes, and persistent logs for troubleshooting.
 
-- **Multiple camera / stream support**  
+- **Better camera hardware**  
   Support additional camera sources or multiple streams beyond a single DroidCam connection.
 
 - **Cross-platform robot abstraction**  
@@ -446,23 +440,9 @@ Planned or potential improvements:
 
 ## Additional Documentation
 
-- Backend Details: See `docs/BACKEND.md` for API endpoints, services, and environment variables
 - Coordinate Calibration: See `docs/COORDINATE_ADJUSTMENT_GUIDE.md` for robot setup instructions
-- Dataset information: See `docs/DATASET_INFO.MD`
+- Dataset information: See `docs/DATASET_INFO.md`
 - Dobot SDK: See https://www.dobot-robots.com/service/download-center for SDK documentation and files
 
-The training folder contains scripts for model inspection. For training a YOLOv8 classification model, refer to the Ultralytics documentation and organize your dataset in class subfolders within the training directory.
-
-## Error Handling & Troubleshooting
-
-The application includes comprehensive error handling with user-friendly messages:
-
-- Frame Decode Errors: Clear messages when the extracted frame cannot be decoded as an image (for example, corrupted stream data or an unexpected response instead of a JPEG)
-- Camera Connection Errors: Troubleshooting hints for DroidCam connection issues
-- ML Model Errors: Clear messages if model is missing or corrupted
-- Robot Errors: Robot operation status included in response even if robot fails
-- Network Errors: Timeout and connection error messages with retry suggestions
-
----
 
 This project is part of a university course (Applied Robotics).

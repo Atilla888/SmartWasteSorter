@@ -1,6 +1,6 @@
 # Coordinate Adjustment Guide
 
-This guide explains how to calibrate the robot coordinates for your specific physical setup.
+This guide explains how to calibrate the robot coordinates for the physical setup.
 
 ## Coordinate System
 
@@ -78,7 +78,7 @@ The robot has built-in safety boundaries to prevent it from reaching dangerous p
 - Z-axis: -50 to 200 mm (below to above base level)
 - Rotation: -180 to 180 degrees
 
-If you try to set coordinates outside these boundaries, the movement will be blocked and an error message will be displayed.
+If coordinates are set outside these boundaries, the movement is blocked and an error message is displayed.
 
 ## Complete Sorting Sequence
 

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       } else if (response.status >= 500) {
         friendlyError = `Server error: ${errorMsg}. Please try again or contact support.`
       } else if (response.status === 400) {
-        friendlyError = `Invalid request: ${errorMsg}. Please check your input.`
+        friendlyError = `Invalid request: ${errorMsg}. Please check the input.`
       }
       
       return NextResponse.json(

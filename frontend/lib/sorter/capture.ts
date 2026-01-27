@@ -23,7 +23,7 @@ function getErrorMessage(status: number, errorText: string): string {
       if (errorText.includes('IP address')) {
         return `Invalid IP address. Please check that the IP address is correct (e.g., 192.168.0.105). Error: ${errorText}`
       }
-      return `Invalid request: ${errorText}. Please check your input and try again.`
+      return `Invalid request: ${errorText}. Please check the input and try again.`
     
     case 503:
       if (errorText.includes('connect') || errorText.includes('DroidCam')) {

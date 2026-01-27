@@ -13,7 +13,7 @@ Requirements:
 """
 
 from pathlib import Path
-from ultralytics import YOLO
+from ultralytics import YOLO  # type: ignore[reportMissingImports]
 
 
 # ============================================================================
@@ -74,7 +74,7 @@ RESUME = None
 
 
 # ============================================================================
-# TRAINING CODE - Do not modify below unless you know what you're doing
+# TRAINING CODE - Do not modify pls
 # ============================================================================
 
 def get_model_path(model_size: str) -> str:

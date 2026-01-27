@@ -1,0 +1,102 @@
+======================================================================
+CLASSIFICATION REPORT
+======================================================================
+
+Overall Accuracy: 0.9913 (99.13%)
+Total Samples: 31030
+Classes Evaluated: 12
+
+              precision    recall  f1-score   support
+
+     battery       0.99      1.00      0.99      1890
+  biological       0.99      0.99      0.99      1970
+ brown-glass       1.00      0.98      0.99      1214
+   cardboard       0.99      0.98      0.99      1782
+     clothes       1.00      1.00      1.00     10650
+ green-glass       0.98      1.00      0.99      1258
+       metal       0.98      0.98      0.98      1538
+       paper       0.99      0.99      0.99      2100
+     plastic       0.99      0.97      0.98      1730
+       shoes       0.99      0.99      0.99      3954
+       trash       0.99      1.00      0.99      1394
+ white-glass       0.98      0.99      0.98      1550
+
+    accuracy                           0.99     31030
+   macro avg       0.99      0.99      0.99     31030
+weighted avg       0.99      0.99      0.99     31030
+
+======================================================================
+Per-Class Details:
+======================================================================
+
+battery:
+  Precision: 0.9916
+  Recall: 0.9968
+  F1-Score: 0.9942
+  Support: 1890
+
+biological:
+  Precision: 0.9949
+  Recall: 0.9898
+  F1-Score: 0.9924
+  Support: 1970
+
+brown-glass:
+  Precision: 0.9983
+  Recall: 0.9835
+  F1-Score: 0.9909
+  Support: 1214
+
+cardboard:
+  Precision: 0.9910
+  Recall: 0.9843
+  F1-Score: 0.9876
+  Support: 1782
+
+clothes:
+  Precision: 0.9961
+  Recall: 0.9979
+  F1-Score: 0.9970
+  Support: 10650
+
+green-glass:
+  Precision: 0.9767
+  Recall: 0.9984
+  F1-Score: 0.9874
+  Support: 1258
+
+metal:
+  Precision: 0.9780
+  Recall: 0.9818
+  F1-Score: 0.9799
+  Support: 1538
+
+paper:
+  Precision: 0.9914
+  Recall: 0.9933
+  F1-Score: 0.9924
+  Support: 2100
+
+plastic:
+  Precision: 0.9859
+  Recall: 0.9711
+  F1-Score: 0.9785
+  Support: 1730
+
+shoes:
+  Precision: 0.9929
+  Recall: 0.9863
+  F1-Score: 0.9896
+  Support: 3954
+
+trash:
+  Precision: 0.9900
+  Recall: 0.9971
+  F1-Score: 0.9936
+  Support: 1394
+
+white-glass:
+  Precision: 0.9770
+  Recall: 0.9858
+  F1-Score: 0.9814
+  Support: 1550

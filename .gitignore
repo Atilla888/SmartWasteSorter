@@ -44,11 +44,8 @@ yarn-error.log*
 next-env.d.ts
 frontend/next-env.d.ts
 
-# Ignore Python virtual environments
+# Ignore Python virtual environment (root: python -m venv venv)
 venv/
-backend/venv/
-.vevn/
-training/venv/
 
 # Ignore Python cache
 __pycache__/
